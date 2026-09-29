@@ -201,6 +201,26 @@ test("hidden labels come with round_start", () => {
   assert.equal(shown.manifest_hash, hidden.manifest_hash, "revealing labels doesn't make players download again");
 });
 
+test("the pages get which segment is on each tile, hidden like the labels", () => {
+  const room = makeRoom({ hideLabels: true });
+  room.addPlayer({ steamid64: RED, name: "a", team: "red" });
+  assert.deepEqual(room.snapshot(T0).tiles[0], { id: "A1", label: null, segment: null, chapter: null });
+  assert.equal(room.tilesMessage().tiles.length, 25);
+  const started = room.start(T0, true);
+  assert.equal(started.tiles, true, "sent again at the reveal");
+  assert.deepEqual(room.tilesMessage(), { type: "tiles", tiles: room.snapshot(T0).tiles });
+  assert.deepEqual(room.snapshot(T0).tiles[7], { id: "C2", label: "S7", segment: "seg-7", chapter: "Test" });
+
+  const shown = makeRoom();
+  shown.addPlayer({ steamid64: RED, name: "a", team: "red" });
+  assert.equal(shown.tileInfo()[0].segment, "seg-0");
+  assert.equal(shown.start(T0, true).tiles, false, "nothing to reveal");
+
+  const ended = makeRoom({ hideLabels: true });
+  assert.equal(ended.end(T0).tiles, true, "ending in the lobby shows them too");
+  assert.equal(ended.tileInfo()[0].label, "S0");
+});
+
 test("a capture: ack, event, board", () => {
   const { room, run } = runningRoom({ redoOwnTile: false });
   const { ack, changes } = run(RED, "B3", 9800, 20_000);

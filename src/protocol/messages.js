@@ -205,6 +205,23 @@ export const LOBBY_STATES = Object.freeze(["lobby", "countdown", "running", "fin
  */
 
 /**
+ * Which segment is on a tile, for the web pages. BXT gets this in its manifest instead
+ * `label`, `segment` and `chapter` are all null while hideLabels keeps them hidden
+ * @typedef {object} TileInfo
+ * @property {import("./ids.js").TileId} id
+ * @property {string | null} label e.g. `OAR2`
+ * @property {string | null} segment The segment's id, e.g. `oar-2-0`
+ * @property {string | null} chapter e.g. `On A Rail`
+ */
+
+/**
+ * Pages only: sent first when a page connects, and again when hidden labels are revealed
+ * @typedef {object} TilesMessage
+ * @property {"tiles"} type
+ * @property {TileInfo[]} tiles All 25
+ */
+
+/**
  * @typedef {object} TileLabel
  * @property {import("./ids.js").TileId} tile
  * @property {string} label
@@ -375,4 +392,4 @@ export const ERROR_CODES = Object.freeze([
  * @property {"pong"} type
  */
 
-/** @typedef {Welcome | Lobby | Manifest | RoundStart | Board | ResultAck | EventMessage | RequestDemo | GameOver | ErrorMessage | Pong} ServerMessage */
+/** @typedef {Welcome | Lobby | Manifest | RoundStart | Board | ResultAck | EventMessage | RequestDemo | GameOver | ErrorMessage | Pong | TilesMessage} ServerMessage */

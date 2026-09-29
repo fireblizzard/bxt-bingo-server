@@ -171,6 +171,7 @@ export class GameRoom extends DurableObject {
       this.ctx.acceptWebSocket(server, ["web"]);
       server.serializeAttachment(/** @type {Attachment} */ ({ kind: "web" }));
       const now = Date.now();
+      server.send(JSON.stringify(room.tilesMessage()));
       server.send(JSON.stringify(room.lobbyMessage()));
       server.send(JSON.stringify(room.boardFor(null, now)));
       if (room.state === "finished") {
@@ -344,6 +345,10 @@ export class GameRoom extends DurableObject {
     }
     if (changes.roundStart) {
       everyone(room.roundStartMessage(now));
+    }
+    if (changes.tiles) {
+      // BXT gets the labels from round_start and its manifest
+      listeners.filter((l) => l.steamid64 === null).forEach((l) => send(l.ws, room.tilesMessage()));
     }
     if (changes.board) {
       listeners.forEach((l) => send(l.ws, room.boardFor(l.steamid64, now)));

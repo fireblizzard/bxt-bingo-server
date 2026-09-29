@@ -86,6 +86,8 @@ export class Changes {
   roundStart = false;
   /** Send `game_over` to everyone */
   gameOver = false;
+  /** Send `tiles` to the pages, e.g. when hidden labels are revealed */
+  tiles = false;
   /**
    * Players who need their `manifest` again
    * @type {Set<string>}
@@ -442,6 +444,7 @@ export class Room {
     this.startsAt = now + this.settings.countdownMs;
     // The labels come with round_start, and are in the manifest for anyone who connects later
     changes.roundStart = changes.lobby = changes.alarm = changes.save = true;
+    changes.tiles = this.settings.hideLabels;
     this.#boardChanged(changes);
     return changes;
   }
@@ -460,6 +463,8 @@ export class Room {
     } else {
       this.game.endByHost(0);
     }
+    // Ended in the lobby: hidden labels are shown now
+    changes.tiles = this.settings.hideLabels && this.state === "lobby";
     this.#finish(changes);
     return changes;
   }
@@ -877,10 +882,32 @@ export class Room {
     );
   }
 
+  /** With hideLabels, nobody sees which segment is where until the start */
+  #labelsHidden() {
+    return this.settings.hideLabels && this.state === "lobby";
+  }
+
+  /**
+   * Which segment is on each tile, for the pages. All null while the labels are hidden
+   * @returns {import("../protocol/messages.js").TileInfo[]}
+   */
+  tileInfo() {
+    const hidden = this.#labelsHidden();
+    return ALL_TILES.map((id) => {
+      const s = this.tiles[id];
+      return { id, label: hidden ? null : s.label, segment: hidden ? null : s.id, chapter: hidden ? null : s.chapter };
+    });
+  }
+
+  /** @returns {import("../protocol/messages.js").TilesMessage} */
+  tilesMessage() {
+    return { type: "tiles", tiles: this.tileInfo() };
+  }
+
   /** @param {Player} player */
   #manifestTiles(player) {
     const build = player.engineBuild ?? "won";
-    const hidden = this.settings.hideLabels && this.state === "lobby";
+    const hidden = this.#labelsHidden();
     return ALL_TILES.map((id) => {
       const s = this.tiles[id];
       return { id, label: hidden ? null : s.label, save: s.saves[build], start: s.start, end: s.end };
@@ -1009,6 +1036,7 @@ export class Room {
     return {
       id: this.id,
       settings: this.settings,
+      tiles: this.tileInfo(),
       leaderboards: this.leaderboards(),
       lobby: this.lobbyMessage(),
       // For the host page's unban buttons

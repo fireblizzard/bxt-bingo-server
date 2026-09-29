@@ -710,6 +710,17 @@ of a verdict of its own; `manifest` gets `extra_files` and `files_url`, and a se
 (§3.1); `game_over` has our endings (§10.2) plus their `host_ended`; `error` adds
 `engine_build_unsupported`; `attempt_result` has no `invalid_reason` or `segment` any more.
 
+### Server → pages
+The pages socket (`/ws/games/<id>`) gets the same `lobby`, `board`, `round_start`, `event` and
+`game_over` as BXT (the board as a spectator sees it), plus one message of its own:
+```jsonc
+{ "type": "tiles", "tiles": [ { "id": "B3", "label": "OAR2", "segment": "oar-2-0", "chapter": "On A Rail" } ] }
+```
+It comes first when a page connects, and again when hidden labels are revealed (the start, or the
+host ending the game in the lobby). While `hideLabels` keeps them hidden, `label`, `segment` and
+`chapter` are all `null`, as the chapter alone would give most of the route away. The snapshot
+(`GET /api/games/<id>`) has the same list as `tiles`.
+
 ---
 
 ## 7. Open questions and spikes (do these first)
@@ -1196,6 +1207,8 @@ Decided since `BINGO-WEB.md` was written:
 12. **Where BXT downloads files:** the manifest's `files_url`, from the Worker's `FILES_URL`
     variable. Production sets it to the public bucket, e.g. `https://assets.jrik.dev/bingo/files/`.
     Without it, BXT downloads from the Worker's own `/files/<sha256>` (§3.2).
-13. The other protocol differences, listed under §6.
+13. **Which segment is on each tile** (their request): the pages get it in a `tiles` message and in
+    the snapshot, hidden like the labels, chapter included (§6, "Server → pages").
+14. The other protocol differences, listed under §6.
 
 Nothing is open right now.
