@@ -1,0 +1,1472 @@
+{
+  "cvars": [
+    {
+      "name": "_bxt_tas_*",
+      "op": "default"
+    },
+    {
+      "name": "bxt_tas_*",
+      "op": "default"
+    },
+    {
+      "name": "bxt_tas_ducktap_priority",
+      "op": "any"
+    },
+    {
+      "name": "bxt_autojump",
+      "op": "any"
+    },
+    {
+      "name": "bxt_autojump_prediction",
+      "op": "any"
+    },
+    {
+      "name": "bxt_autojump_priority",
+      "op": "any"
+    },
+    {
+      "name": "sv_gravity",
+      "op": "eq",
+      "value": "800"
+    },
+    {
+      "name": "cl_cmdrate",
+      "op": "eq",
+      "value": "30"
+    },
+    {
+      "name": "ex_interp",
+      "op": "eq",
+      "value": "0.1"
+    },
+    {
+      "name": "_bxt_min_frametime",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "_bxt_norefresh",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "_bxt_save_runtime_data_in_demos",
+      "op": "eq",
+      "value": "1"
+    },
+    {
+      "name": "_bxt_taslog",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "bxt_autopause",
+      "op": "any"
+    },
+    {
+      "name": "bxt_bhopcap",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "bxt_cof_disable_monsters_teleport_to_spawn_after_load",
+      "op": "unchanged"
+    },
+    {
+      "name": "bxt_cof_disable_viewpunch_from_jump",
+      "op": "unchanged"
+    },
+    {
+      "name": "bxt_collision_depth_map",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "bxt_collision_depth_map_colors",
+      "op": "unchanged"
+    },
+    {
+      "name": "bxt_collision_depth_map_fov",
+      "op": "unchanged"
+    },
+    {
+      "name": "bxt_collision_depth_map_hull",
+      "op": "unchanged"
+    },
+    {
+      "name": "bxt_collision_depth_map_max_depth",
+      "op": "unchanged"
+    },
+    {
+      "name": "bxt_disable_brush_entities",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "bxt_disable_gamedir_check_in_demo",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "bxt_disable_hud",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "bxt_disable_particles",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "bxt_disable_player_corpses",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "bxt_disable_sprite_entities",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "bxt_disable_studio_entities",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "bxt_disable_vgui",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "bxt_disable_world",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "bxt_fade_remove",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "bxt_fire_on_button_command",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "bxt_fire_on_button_target",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "bxt_fire_on_mm_command",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "bxt_fire_on_mm_targetname",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "bxt_fire_on_stuck",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "bxt_force_duck",
+      "op": "default"
+    },
+    {
+      "name": "bxt_force_jumpless",
+      "op": "default"
+    },
+    {
+      "name": "bxt_force_zmax",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "bxt_hide_other_players",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "bxt_interprocess_enable",
+      "op": "unchanged"
+    },
+    {
+      "name": "bxt_novis",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "bxt_remove_fps_limit",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "bxt_remove_punchangles",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "bxt_remove_stamina",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "bxt_render_far_entities",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "bxt_shake_remove",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "bxt_show_bullets",
+      "op": "unchanged"
+    },
+    {
+      "name": "bxt_show_bullets_enemies",
+      "op": "unchanged"
+    },
+    {
+      "name": "bxt_show_hidden_entities",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "bxt_show_hidden_entities_clientside",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "bxt_show_monster_bbox",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "bxt_show_nodes",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "bxt_show_only_players",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "bxt_show_only_viewmodel",
+      "op": "unchanged"
+    },
+    {
+      "name": "bxt_show_pickup_bbox",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "bxt_show_player_bbox",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "bxt_show_splits",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "bxt_show_triggers",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "bxt_show_triggers_legacy",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "bxt_skybox_remove",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "bxt_splits_end_on_last_split",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "bxt_splits_start_timer_on_first_split",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "bxt_taslog",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "bxt_taslog_filename",
+      "op": "unchanged"
+    },
+    {
+      "name": "bxt_wallhack",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "bxt_wallhack_additive",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "bxt_wallhack_alpha",
+      "op": "eq",
+      "value": "0.6"
+    },
+    {
+      "name": "bxt_water_remove",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "c_maxdistance",
+      "op": "eq",
+      "value": "200"
+    },
+    {
+      "name": "c_maxpitch",
+      "op": "eq",
+      "value": "90"
+    },
+    {
+      "name": "c_maxyaw",
+      "op": "eq",
+      "value": "135"
+    },
+    {
+      "name": "c_mindistance",
+      "op": "eq",
+      "value": "30"
+    },
+    {
+      "name": "c_minpitch",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "c_minyaw",
+      "op": "eq",
+      "value": "-135"
+    },
+    {
+      "name": "cam_command",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "cam_contain",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "cam_idealdist",
+      "op": "eq",
+      "value": "64"
+    },
+    {
+      "name": "cam_idealpitch",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "cam_idealyaw",
+      "op": "eq",
+      "value": "90"
+    },
+    {
+      "name": "cam_snapto",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "chase_active",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "chase_back",
+      "op": "eq",
+      "value": "100"
+    },
+    {
+      "name": "chase_right",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "chase_up",
+      "op": "eq",
+      "value": "16"
+    },
+    {
+      "name": "cl_anglespeedkey",
+      "op": "eq",
+      "value": "0.67"
+    },
+    {
+      "name": "cl_backspeed",
+      "op": "eq",
+      "value": "400"
+    },
+    {
+      "name": "cl_clockreset",
+      "op": "eq",
+      "value": "0.1"
+    },
+    {
+      "name": "cl_cmdbackup",
+      "op": "eq",
+      "value": "2"
+    },
+    {
+      "name": "cl_filterstuffcmd",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "cl_fixtimerate",
+      "op": "eq",
+      "value": "7.5"
+    },
+    {
+      "name": "cl_forwardspeed",
+      "op": "eq",
+      "value": "400"
+    },
+    {
+      "name": "cl_gaitestimation",
+      "op": "eq",
+      "value": "1"
+    },
+    {
+      "name": "cl_gg",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "cl_idealpitchscale",
+      "op": "eq",
+      "value": "0.8"
+    },
+    {
+      "name": "cl_lc",
+      "op": "eq",
+      "value": "1"
+    },
+    {
+      "name": "cl_mousegrab",
+      "op": "eq",
+      "value": "1"
+    },
+    {
+      "name": "cl_movespeedkey",
+      "op": "eq",
+      "value": "0.3"
+    },
+    {
+      "name": "cl_needinstanced",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "cl_nosmooth",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "cl_pitchdown",
+      "op": "any"
+    },
+    {
+      "name": "cl_pitchspeed",
+      "op": "eq",
+      "value": "225"
+    },
+    {
+      "name": "cl_pitchup",
+      "op": "any"
+    },
+    {
+      "name": "cl_shownet",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "cl_sidespeed",
+      "op": "eq",
+      "value": "400"
+    },
+    {
+      "name": "cl_slist",
+      "op": "eq",
+      "value": "10"
+    },
+    {
+      "name": "cl_smoothtime",
+      "op": "eq",
+      "value": "0.1"
+    },
+    {
+      "name": "cl_solid_players",
+      "op": "eq",
+      "value": "1"
+    },
+    {
+      "name": "cl_upspeed",
+      "op": "eq",
+      "value": "320"
+    },
+    {
+      "name": "cl_vsmoothing",
+      "op": "eq",
+      "value": "0.05"
+    },
+    {
+      "name": "cl_waterdist",
+      "op": "eq",
+      "value": "4"
+    },
+    {
+      "name": "cl_weaponlistfix",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "cl_yawspeed",
+      "op": "eq",
+      "value": "210"
+    },
+    {
+      "name": "clientport",
+      "op": "eq",
+      "value": "27005"
+    },
+    {
+      "name": "coop",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "d_spriteskip",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "deathmatch",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "dev_overview",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "direct",
+      "op": "eq",
+      "value": "0.9"
+    },
+    {
+      "name": "displaysoundlist",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "edgefriction",
+      "op": "eq",
+      "value": "2"
+    },
+    {
+      "name": "fakelag",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "fakeloss",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "fps_override",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "fs_lazy_precache",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "fs_perf_warnings",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "fs_precache_timings",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "fs_startup_timings",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "gl_affinemodels",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "gl_alphamin",
+      "op": "eq",
+      "value": "0.25"
+    },
+    {
+      "name": "gl_cull",
+      "op": "eq",
+      "value": "1"
+    },
+    {
+      "name": "gl_dither",
+      "op": "eq",
+      "value": "1"
+    },
+    {
+      "name": "gl_flipmatrix",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "gl_fog",
+      "op": "eq",
+      "value": "1"
+    },
+    {
+      "name": "gl_keeptjunctions",
+      "op": "eq",
+      "value": "1"
+    },
+    {
+      "name": "gl_lightholes",
+      "op": "eq",
+      "value": "1"
+    },
+    {
+      "name": "gl_monolights",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "gl_overbright",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "gl_wireframe",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "host_framerate",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "host_limitlocal",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "host_profile",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "host_speeds",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "HostMap",
+      "op": "unchanged"
+    },
+    {
+      "name": "hostname",
+      "op": "unchanged"
+    },
+    {
+      "name": "hostport",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "hud_saytext_time",
+      "op": "eq",
+      "value": "5"
+    },
+    {
+      "name": "ip",
+      "op": "unchanged"
+    },
+    {
+      "name": "ip_clientport",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "ip_hostport",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "ipx_clientport",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "ipx_hostport",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "joyadvanced",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "joyadvaxisr",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "joyadvaxisu",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "joyadvaxisv",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "joyadvaxisx",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "joyadvaxisy",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "joyadvaxisz",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "joyforwardsensitivity",
+      "op": "eq",
+      "value": "-1"
+    },
+    {
+      "name": "joyforwardthreshold",
+      "op": "eq",
+      "value": "0.15"
+    },
+    {
+      "name": "joyname",
+      "op": "unchanged"
+    },
+    {
+      "name": "joypitchsensitivity",
+      "op": "eq",
+      "value": "1"
+    },
+    {
+      "name": "joypitchthreshold",
+      "op": "eq",
+      "value": "0.15"
+    },
+    {
+      "name": "joysidesensitivity",
+      "op": "eq",
+      "value": "-1"
+    },
+    {
+      "name": "joysidethreshold",
+      "op": "eq",
+      "value": "0.15"
+    },
+    {
+      "name": "joywwhack1",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "joywwhack2",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "joyyawsensitivity",
+      "op": "eq",
+      "value": "-1"
+    },
+    {
+      "name": "joyyawthreshold",
+      "op": "eq",
+      "value": "0.15"
+    },
+    {
+      "name": "lambert",
+      "op": "eq",
+      "value": "1.5"
+    },
+    {
+      "name": "logsdir",
+      "op": "unchanged"
+    },
+    {
+      "name": "lookspring",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "lookstrafe",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "lservercfgfile",
+      "op": "unchanged"
+    },
+    {
+      "name": "mapchangecfgfile",
+      "op": "unchanged"
+    },
+    {
+      "name": "mapcyclefile",
+      "op": "unchanged"
+    },
+    {
+      "name": "max_queries_sec",
+      "op": "eq",
+      "value": "3"
+    },
+    {
+      "name": "max_queries_sec_global",
+      "op": "eq",
+      "value": "30"
+    },
+    {
+      "name": "max_queries_window",
+      "op": "eq",
+      "value": "60"
+    },
+    {
+      "name": "motdfile",
+      "op": "unchanged"
+    },
+    {
+      "name": "mp_allowmonsters",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "mp_chattime",
+      "op": "eq",
+      "value": "10"
+    },
+    {
+      "name": "mp_consistency",
+      "op": "eq",
+      "value": "1"
+    },
+    {
+      "name": "mp_defaultteam",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "mp_falldamage",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "mp_flashlight",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "mp_footsteps",
+      "op": "eq",
+      "value": "1"
+    },
+    {
+      "name": "mp_forcerespawn",
+      "op": "eq",
+      "value": "1"
+    },
+    {
+      "name": "mp_fraglimit",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "mp_fragsleft",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "mp_friendlyfire",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "mp_logecho",
+      "op": "eq",
+      "value": "1"
+    },
+    {
+      "name": "mp_logfile",
+      "op": "eq",
+      "value": "1"
+    },
+    {
+      "name": "mp_teamlist",
+      "op": "unchanged"
+    },
+    {
+      "name": "mp_teamoverride",
+      "op": "eq",
+      "value": "1"
+    },
+    {
+      "name": "mp_teamplay",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "mp_timeleft",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "mp_timelimit",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "mp_weaponstay",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "multicastport",
+      "op": "eq",
+      "value": "27025"
+    },
+    {
+      "name": "net_address",
+      "op": "unchanged"
+    },
+    {
+      "name": "net_chokeloop",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "net_drawslider",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "net_log",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "net_showdrop",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "net_showpackets",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "r_drawentities",
+      "op": "eq",
+      "value": "1"
+    },
+    {
+      "name": "r_fullbright",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "r_speeds",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "s_show",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "scr_centertime",
+      "op": "eq",
+      "value": "2"
+    },
+    {
+      "name": "scr_connectmsg",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "scr_connectmsg1",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "scr_connectmsg2",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "scr_ofsx",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "scr_ofsy",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "scr_ofsz",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "scr_printspeed",
+      "op": "eq",
+      "value": "8"
+    },
+    {
+      "name": "sdl_double_click_size",
+      "op": "eq",
+      "value": "2"
+    },
+    {
+      "name": "sdl_double_click_time",
+      "op": "eq",
+      "value": "400"
+    },
+    {
+      "name": "servercfgfile",
+      "op": "unchanged"
+    },
+    {
+      "name": "snd_show",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "sv_accelerate",
+      "op": "eq",
+      "value": "10"
+    },
+    {
+      "name": "sv_airaccelerate",
+      "op": "eq",
+      "value": "10"
+    },
+    {
+      "name": "sv_bounce",
+      "op": "eq",
+      "value": "1"
+    },
+    {
+      "name": "sv_cheats",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "sv_friction",
+      "op": "eq",
+      "value": "4"
+    },
+    {
+      "name": "sv_lan",
+      "op": "eq",
+      "value": "1"
+    },
+    {
+      "name": "sv_log_onefile",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "sv_log_singleplayer",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "sv_logbans",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "sv_logblocks",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "sv_logrelay",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "sv_logsecret",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "sv_maxspeed",
+      "op": "eq",
+      "value": "320"
+    },
+    {
+      "name": "sv_maxunlag",
+      "op": "eq",
+      "value": "0.5"
+    },
+    {
+      "name": "sv_maxvelocity",
+      "op": "eq",
+      "value": "2000"
+    },
+    {
+      "name": "sv_newunit",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "sv_rcon_banpenalty",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "sv_rcon_maxfailures",
+      "op": "eq",
+      "value": "10"
+    },
+    {
+      "name": "sv_rcon_minfailures",
+      "op": "eq",
+      "value": "5"
+    },
+    {
+      "name": "sv_rcon_minfailuretime",
+      "op": "eq",
+      "value": "30"
+    },
+    {
+      "name": "sv_spectatormaxspeed",
+      "op": "eq",
+      "value": "500"
+    },
+    {
+      "name": "sv_stats",
+      "op": "eq",
+      "value": "1"
+    },
+    {
+      "name": "sv_stepsize",
+      "op": "eq",
+      "value": "18"
+    },
+    {
+      "name": "sv_stopspeed",
+      "op": "eq",
+      "value": "100"
+    },
+    {
+      "name": "sv_unlagpush",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "sv_wateraccelerate",
+      "op": "eq",
+      "value": "10"
+    },
+    {
+      "name": "sv_wateramp",
+      "op": "eq",
+      "value": "0"
+    },
+    {
+      "name": "sv_waterfriction",
+      "op": "eq",
+      "value": "1"
+    },
+    {
+      "name": "sys_ticrate",
+      "op": "eq",
+      "value": "100"
+    },
+    {
+      "name": "sk_*",
+      "op": "unchanged"
+    }
+  ],
+  "single_segment": false,
+  "scripted": true,
+  "commands": {
+    "allowed": [
+      "-*",
+      "+bxt_tas_autojump",
+      "+bxt_tas_ducktap",
+      "+bxt_tas_jumpbug",
+      "+attack",
+      "+attack2",
+      "+back",
+      "+duck",
+      "+forward",
+      "+jump",
+      "+left",
+      "+moveleft",
+      "+moveright",
+      "+moveup",
+      "+reload",
+      "+right",
+      "+speed",
+      "+strafe",
+      "+use",
+      "_bxt_interprocess_reset",
+      "-duck",
+      "force_centerview",
+      "gl_texturemode",
+      "impulse 100",
+      "impulse 201",
+      "lastinv",
+      "pause",
+      "stopsound",
+      "toggleconsole",
+      "+alt1",
+      "+break",
+      "+commandmenu",
+      "+graph",
+      "+jlook",
+      "+klook",
+      "+lookdown",
+      "+lookup",
+      "+mlook",
+      "+movedown",
+      "+score",
+      "+showscores",
+      "+voicerecord",
+      "-alt1",
+      "-attack",
+      "-attack2",
+      "-back",
+      "-break",
+      "-commandmenu",
+      "-duck",
+      "-forward",
+      "-graph",
+      "-jlook",
+      "-jump",
+      "-klook",
+      "-left",
+      "-lookdown",
+      "-lookup",
+      "-mlook",
+      "-movedown",
+      "-moveleft",
+      "-moveright",
+      "-moveup",
+      "-reload",
+      "-right",
+      "-score",
+      "-showscores",
+      "-speed",
+      "-strafe",
+      "-use",
+      "-voicerecord",
+      "_careeraudio",
+      "_restart",
+      "_set_vid_level",
+      "_setaddons_folder",
+      "_setgamedir",
+      "_sethdmodels",
+      "_setrenderer",
+      "_setvideomode",
+      "addip",
+      "alias",
+      "appenddemo",
+      "autosave",
+      "banid",
+      "bind",
+      "bxt_append",
+      "bxt_autorecord",
+      "bxt_record",
+      "cancelselect",
+      "cd",
+      "centerview",
+      "clear",
+      "cmd",
+      "cmdlist",
+      "condebug",
+      "condump",
+      "contimes",
+      "cvarlist",
+      "dem_forcehltv",
+      "dem_jump",
+      "dem_pause",
+      "dem_save",
+      "dem_speed",
+      "dem_start",
+      "demos",
+      "dlfile",
+      "dropclient",
+      "echo",
+      "endmovie",
+      "escape",
+      "exec",
+      "exit",
+      "firstperson",
+      "ForceCloseCommandMenu",
+      "fullupdate",
+      "gl_dump",
+      "gl_texels",
+      "haiku",
+      "heartbeat",
+      "hideconsole",
+      "interp",
+      "invnext",
+      "invprev",
+      "joyadvancedupdate",
+      "kick",
+      "kill",
+      "listdemo",
+      "listen",
+      "listid",
+      "listip",
+      "load",
+      "localinfo",
+      "log",
+      "logaddress",
+      "logaddress_add",
+      "logaddress_del",
+      "maps",
+      "maxplayers",
+      "mcache",
+      "messagemode",
+      "messagemode2",
+      "motd",
+      "motd_write",
+      "mp3",
+      "new",
+      "ping",
+      "pingservers",
+      "play",
+      "playvol",
+      "pointfile",
+      "ppdemostart",
+      "quit",
+      "record",
+      "reload",
+      "removedemo",
+      "removeid",
+      "removeip",
+      "resetrcon",
+      "save",
+      "say",
+      "say_team",
+      "screenshot",
+      "sendents",
+      "sendres",
+      "serverinfo",
+      "setdemoinfo",
+      "setinfo",
+      "setmaster",
+      "setpause",
+      "showinfo",
+      "shutdownserver",
+      "sizedown",
+      "sizeup",
+      "slot1",
+      "slot10",
+      "slot2",
+      "slot3",
+      "slot4",
+      "slot5",
+      "slot6",
+      "slot7",
+      "slot8",
+      "slot9",
+      "snapshot",
+      "snapto",
+      "soundfade",
+      "soundinfo",
+      "soundlist",
+      "speak",
+      "special",
+      "spk",
+      "startdemos",
+      "startmovie",
+      "stats",
+      "stop",
+      "stopdemo",
+      "stuffcmds",
+      "tell",
+      "timedemo",
+      "togglebrowser",
+      "unbind",
+      "unbindall",
+      "unpause",
+      "upload",
+      "user",
+      "users",
+      "version",
+      "viewdemo",
+      "viewframe",
+      "viewmodel",
+      "viewnext",
+      "viewprev",
+      "w",
+      "wait",
+      "weapon_*",
+      "writecfg",
+      "writeid",
+      "writeip"
+    ],
+    "not_in_scripts": [
+      "+back",
+      "+forward",
+      "+left",
+      "+moveleft",
+      "+moveright",
+      "+right"
+    ],
+    "blocked": []
+  },
+  "no_damage": false
+}

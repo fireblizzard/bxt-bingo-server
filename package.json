@@ -1,0 +1,26 @@
+{
+  "name": "bxt-bingo-server",
+  "private": true,
+  "type": "module",
+  "description": "Protocol, game rules, the local game server and tools for BXT Bingo",
+  "exports": {
+    "./protocol": "./src/protocol/index.js",
+    "./game": "./src/game/index.js",
+    "./room": "./src/room/index.js",
+    "./rules": "./src/rules/handicaps.js"
+  },
+  "scripts": {
+    "test": "node --test",
+    "dev": "wrangler dev --var DEV_ROUTES:true",
+    "whitelist": "node tools/whitelist/main.js",
+    "echo": "node tools/echo.js",
+    "dev-game": "node tools/dev-game.js",
+    "fake-bxt": "node tools/fake-bxt.js"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "devDependencies": {
+    "wrangler": "^4.143.0"
+  }
+}

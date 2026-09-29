@@ -1,0 +1,27 @@
+# Local development: `npm run dev` runs the whole backend at http://localhost:8787,
+# with Durable Objects and R2 stored under .wrangler/ and no Cloudflare account needed
+# Deploying is the web side's: they add routes, D1, secrets and the production buckets
+
+name = "bxt-bingo"
+main = "worker/index.js"
+compatibility_date = "2025-09-01"
+
+[[durable_objects.bindings]]
+name = "GAME"
+class_name = "GameRoom"
+
+# Stands in for the web side's D1 join codes when testing locally
+[[durable_objects.bindings]]
+name = "DIRECTORY"
+class_name = "Directory"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["GameRoom", "Directory"]
+
+# Where BXT downloads files (the manifest's files_url). Without it, this Worker's /files/
+# In production, e.g. under [vars]: FILES_URL = "https://assets.jrik.dev/bingo/files/"
+
+[[r2_buckets]]
+binding = "FILES"
+bucket_name = "bingo-files"

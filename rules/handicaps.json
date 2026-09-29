@@ -1,0 +1,84 @@
+{
+  "autojump": {
+    "name": "Autojump",
+    "kind": "assist",
+    "allow_commands": ["+bxt_tas_autojump"],
+    "allow_cvars": ["bxt_autojump", "bxt_autojump_prediction", "bxt_autojump_priority"]
+  },
+  "ducktap": {
+    "name": "Ducktap",
+    "kind": "assist",
+    "allow_commands": ["+bxt_tas_ducktap"],
+    "allow_cvars": ["bxt_tas_ducktap_priority"]
+  },
+  "no_attack2": {
+    "name": "No +attack2",
+    "kind": "handicap",
+    "block_commands": ["+attack2"]
+  },
+  "no_damage": {
+    "name": "No damage%",
+    "kind": "handicap",
+    "no_damage": true
+  },
+  "duckless": {
+    "name": "Duckless",
+    "kind": "handicap",
+    "block_commands": ["+duck", "+bxt_tas_ducktap", "+bxt_tas_jumpbug"]
+  },
+  "jumpless": {
+    "name": "Jumpless",
+    "kind": "handicap",
+    "block_commands": ["+jump", "+bxt_tas_autojump", "+bxt_tas_jumpbug"]
+  },
+  "useless": {
+    "name": "Useless",
+    "kind": "handicap",
+    "block_commands": ["+use"]
+  },
+  "pacifist": {
+    "name": "Pacifist",
+    "kind": "handicap",
+    "block_commands": ["+attack", "+attack2"]
+  },
+  "bloodthirsty": {
+    "name": "Bloodthirsty",
+    "kind": "handicap",
+    "require_kill": true
+  },
+  "single_segment": {
+    "name": "Single-segment",
+    "kind": "handicap",
+    "single_segment": true
+  },
+  "jupiter": {
+    "name": "Jupiter",
+    "kind": "handicap",
+    "set_cvars": { "sv_gravity": "2021.61" }
+  },
+  "mars": {
+    "name": "Mars",
+    "kind": "handicap",
+    "set_cvars": { "sv_gravity": "302.55" }
+  },
+  "short_sighted": {
+    "name": "Short-sighted",
+    "kind": "handicap",
+    "set_cvars": { "sv_zmax": "128" }
+  },
+  "baby": {
+    "name": "Baby",
+    "kind": "handicap",
+    "set_cvars": { "sv_stepsize": "0" }
+  },
+  "reverse": {
+    "name": "Reverse",
+    "kind": "handicap",
+    "set_cvars": { "sv_airaccelerate": "-1", "sv_accelerate": "-5" }
+  },
+  "cs16": {
+    "name": "CS 1.6",
+    "kind": "handicap",
+    "set_cvars": { "sv_maxspeed": "250", "sv_accelerate": "5" }
+  }
+}
