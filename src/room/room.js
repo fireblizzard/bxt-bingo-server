@@ -7,7 +7,7 @@
 import { Game } from "../game/game.js";
 import { ALL_TILES, isTeam, tileIndex } from "../protocol/ids.js";
 import { PROTOCOL_VERSION } from "../protocol/messages.js";
-import { isSafeExtraPath } from "../protocol/segment.js";
+import { DEFAULT_GAME, isSafeExtraPath } from "../protocol/segment.js";
 import { applyHandicaps } from "../rules/handicaps.js";
 import { cleanName, endingText, formatClock, resultText } from "./format.js";
 
@@ -163,7 +163,14 @@ export class Room {
     if (tiles.length !== ALL_TILES.length || new Set(tiles.map((t) => tileIndex(t.id))).size !== ALL_TILES.length) {
       throw new RoomError("bad_request", `the board needs each of the ${ALL_TILES.length} tiles once`);
     }
+    // Nobody can switch games in the middle of a match
+    const games = [...new Set(tiles.map((t) => t.segment.game ?? DEFAULT_GAME))];
+    if (games.length > 1) {
+      throw new RoomError("bad_request", `a board is one game, this one has segments from ${games.join(", ")}`);
+    }
     this.id = id;
+    /** The game folder the board is played in, e.g. `valve` */
+    this.gameFolder = games[0];
     this.settings = Object.freeze({
       // On unless it's given
       redoOwnTile: settings.redoOwnTile ?? true,
@@ -936,6 +943,7 @@ export class Room {
       tiles: this.#manifestTiles(player),
       extra_files: this.extraFiles,
       files_url: this.filesUrl,
+      game: this.gameFolder,
     };
   }
 

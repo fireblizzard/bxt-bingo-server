@@ -191,6 +191,8 @@ export const LOBBY_STATES = Object.freeze(["lobby", "countdown", "running", "fin
  * @property {import("./segment.js").Ruleset} ruleset This player's rules, with their handicaps applied
  * @property {ManifestTile[]} tiles
  * @property {import("./segment.js").ExtraFile[]} extra_files Other files the game needs, e.g. the win sound
+ * @property {string} game The game folder the board is played in, e.g. `valve` (BINGO.md §3.3)
+ *   BXT checks it against the game it runs in
  * @property {string} files_url Where BXT downloads every file, as `<files_url><sha256>`
  *   A path like `/files/` is on the server BXT connected to (`http` for `ws`, `https` for `wss`)
  */

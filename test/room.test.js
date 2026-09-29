@@ -201,6 +201,23 @@ test("hidden labels come with round_start", () => {
   assert.equal(shown.manifest_hash, hidden.manifest_hash, "revealing labels doesn't make players download again");
 });
 
+test("a board is one game, and the manifest says which", () => {
+  const room = makeRoom();
+  room.addPlayer({ steamid64: RED, name: "a", team: "red" });
+  assert.equal(room.manifestFor(RED).game, "valve", "segments without a game are HL1's");
+
+  const opfor = makeTiles().map((t) => ({ ...t, segment: { ...t.segment, pool: "opfor", game: "gearbox" } }));
+  const gearbox = new Room({ id: "g", settings: {}, tiles: opfor, ruleset: scriptless, handicapPresets: presets });
+  gearbox.addPlayer({ steamid64: RED, name: "a", team: "red" });
+  assert.equal(gearbox.manifestFor(RED).game, "gearbox");
+
+  const mixed = opfor.map((t, i) => (i === 0 ? makeTiles()[0] : t));
+  assert.throws(
+    () => new Room({ id: "g", settings: {}, tiles: mixed, ruleset: scriptless, handicapPresets: presets }),
+    (e) => e instanceof RoomError && /one game/.test(e.message),
+  );
+});
+
 test("the pages get which segment is on each tile, hidden like the labels", () => {
   const room = makeRoom({ hideLabels: true });
   room.addPlayer({ steamid64: RED, name: "a", team: "red" });

@@ -185,12 +185,14 @@ For bingo, BXT should **not** `exec` arbitrary cfgs. That's where cheating and a
 one-time import script (server side, or a small tool) that parses the kit into a **segment catalog**:
 
 ```jsonc
-// segments.json (server-side catalog; ~200 sections exist in the kit today)
+// catalog/hl1.json (server-side catalog, one file per pool; 197 segments from the kit today)
 // Authoritative shape: `Segment` in bxt-bingo-server/src/protocol/segment.js
 {
   "id": "oar-2-0",
   "label": "OAR2",            // short tile text; sections could be "OAR2.1", "OAR2.2"
   "chapter": "On A Rail",
+  "pool": "hl1",              // what the host picks from, §3.3
+  "game": "valve",            // the game folder it's played in, §3.3
   "saves": { "won": { "sha256": "…", "size": 812345 } },   // per engine build (§3.1 notes)
   "start": { "type": "trigger", "corners": [[-2843.9,-447.6,-128.8],[-2801.3,-240.0,-3.6]] },
   "end":   { "corners": [[-3101.0,312.9,-12.0],[-3065.2,502.7,253]] },
@@ -209,9 +211,19 @@ Notes:
 - `end` can be `{ "type": "game_end" }` instead of a trigger box, for segments that end with the
   game (Nihilanth), where the kit has no end trigger and BXT's timer stops by itself at the end of
   the game (autostop, §4.3). A trigger box may leave `type` out, as the current boards do. BXT
-  still has to learn `game_end`, together with the catalog importer.
+  ends the run in its autostop (`Bingo::OnGameEnd`, called from `DoAutoStopTasks`), right before
+  BXT's own timer would stop.
 - Several sections share a save and start trigger and only differ in the end trigger (`bp-1-0` and
   `bp-1-1` both load `bp1start`). That's fine: an attempt belongs to the tile the player picked.
+- **Built:** `npm run catalog -- "<Half-Life Practice Kit folder>"` writes `catalog/hl1.json`. The
+  cfg name is `<chapter>-<map>-<section>`: section 0 is the whole segment (label `OAR2`), 1 its
+  first half from the start save (`OAR2.1`) and 2 its second half from the half save (`OAR2.2`).
+  The start trigger is the one whose command starts the timer and the end trigger the one that
+  stops it, in either order. A cfg that starts the timer itself after loading (`am-5-2`) gets
+  `on_load`, and Nihilanth gets `game_end`. Left out: `am-1-0`, which loads no save (it starts
+  from the map itself, like the map-start segments in §3.3), and three triggers in `wgh-1-1` with
+  no timer command. The 197 segments use 135 different saves. The saves aren't in the repo: they
+  go to the file storage (`dev-game --saves` locally, the web side's upload in production).
 - **Segment ids are never reused.** The leaderboards key times by segment id, so a segment whose
   save or triggers change is a new segment with a new id, and old times aren't compared with new
   ones.
@@ -271,6 +283,49 @@ Notes:
   every 15 s. Checked under Wine 9 against the local server: missing folders, a file already there,
   a different save replaced, a different extra file refused, a 404, a file too big, a hash mismatch
   and a server that's down. No hash cache yet.
+
+### 3.3 Pools and games
+The host picks which **pools** a board is drawn from when making the lobby, e.g. only the HL1
+campaign, or the campaign and the Hazard Course together. Every catalog segment has two fields
+for this from the start, so adding pools later doesn't change the format:
+
+- **`pool`**: the set it belongs to, shown to the host. For example `hl1` (the campaign),
+  `hazard-course`, `blue-shift`, `opfor`, `ag-bhop`, `ag-climb`, or a set of custom bingo or
+  challenge maps.
+- **`game`**: the game folder it's played in: `valve` for HL1 and the Hazard Course (the Hazard
+  Course maps are part of Half-Life), `bshift` for Blue Shift, `gearbox` for Opposing Force, `ag`
+  for AG.
+
+Rules:
+
+1. **A board is one game.** Nobody can switch games in the middle of a match, and a save from one
+   game doesn't load in another. Pools of different games can't be mixed, and the server refuses
+   a board whose segments aren't all the same `game`. Pools of the same game mix freely (HL1 and
+   the Hazard Course).
+2. **The manifest says which game it is** (`game`), and BXT checks it against the game it's
+   running in, e.g. "This game is played in Opposing Force", instead of failing on the first
+   tile. A game folder counts when it's the same name or starts with it and `_`, so `valve_WON`
+   plays `valve` boards. The lobby could show it too, so players start the right game before
+   joining.
+
+   Built: `pool` and `game` on segments (both optional, `hl1` and `valve` when missing), the
+   server's one-game check, `game` in the manifest, and BXT's check (it leaves the game with a
+   message, and refuses such a board offline too).
+3. **Each game has its own saves and triggers** in the catalog, and players need that game
+   installed. BXT already runs in Blue Shift and Opposing Force.
+4. **The board picker** (web side) draws the 25 tiles from the pools the host ticked. The server
+   doesn't care which pool a segment came from, only that the board is one game.
+
+How much work each kind of pool is:
+
+| Pools | Work |
+|---|---|
+| HL1 campaign, Hazard Course | Only catalog entries, like today's segments. |
+| Blue Shift, Opposing Force | Catalog entries with their own saves, plus the `game` check above. |
+| AG bhop and climb maps, custom maps | The most work, as its own step later: downloading maps (`.bsp` and often `.wad`, models and sounds, where §3.2 still has to decide on the player's game folder or a separate bingo one), segments that start from the map's start instead of a save (a start like `{ "type": "map", "map": "bhop_x" }`, and a retry reloads the map), and maybe their own rulesets, as bhop and climb have other rules than the HL1 whitelist. |
+
+The rulesets may later be per game or per pool as well. For now every board uses the HL1
+whitelist (`rules/won-*.json`).
 
 ---
 
@@ -463,8 +518,12 @@ IDLE ──pick (board click / bxt_bingo_play)──▶ LOADING ──save loade
   - segmented (the default): saves made during this run can be loaded, and the timer keeps
     running. BXT hashes each save right after the game writes it and checks the hash again on
     load, so a save swapped from outside the game cancels the run. `reload` after dying loads the
-    newest save, which is handled the same way;
-  - single-segment: loading anything but the retry save cancels the run.
+    newest save made during this run (or the retry save if there's none), which is handled the
+    same way. BXT picks it rather than the engine, which could load an older autosave or quicksave;
+  - single-segment: loading anything but the retry save cancels the run, and so does dying.
+    `reload` after dying loads the retry save, so the tile starts over.
+
+  After a run was cancelled or finished, `reload` also starts the tile over.
 
   Saving over the retry save during a run is refused, since loading it restarts the tile.
 - **Other things that cancel a run:** `map`, `changelevel`, `restart`, a broken cvar or command
@@ -658,7 +717,8 @@ elsewhere), `4004` banned, `1012` server restarting (reconnect). Any other drop:
   "tiles": [ { "id": "B3", "label": "OAR2" /* null while hidden */, "save": { "sha256": "…", "size": 812345 },
                "start": { "type": "trigger", "corners": [ … ] }, "end": { "corners": [ … ] } } ],
   "extra_files": [ { "path": "sound/bingo/firework.wav", "sha256": "…", "size": 74858 } ],
-  "files_url": "/files/" /* or e.g. "https://assets.jrik.dev/bingo/files/" */ }
+  "files_url": "/files/" /* or e.g. "https://assets.jrik.dev/bingo/files/" */,
+  "game": "valve" /* the game folder, §3.3 */ }
 { "type": "round_start", "countdown_ms": 5000, "starts_at": "…Z", "labels": [ { "tile": "B3", "label": "OAR2" } ] }
 { "type": "board", "seq": 42, "clock_ms": 1834000, "time_limit_ms": 900000, "sudden_death_ms": 600000,
   "tiles": [ { "id": "B3", "owner": "red", "time_ms": 12345, "holder": "ninya", "playable_for_you": false,
@@ -841,9 +901,9 @@ or Node dependencies, so it's tested with plain Node (`npm test`):
   exact-text ping answered without waking the game, storage of the room and its log, alarms for
   the countdown, the time limit and sudden death, one BXT socket per player (4003 for the old one),
   session tokens stored as hashes, files from R2, and a pages socket (`/ws/games/<id>`).
-- `rules/`: the standard rulesets from the whitelist sheet (`npm run whitelist`, §10), the extra
-  files list (`extra-files.json`, with the files themselves in `files/`), and later the catalog
-  (§3.1).
+- `rules/`: the standard rulesets from the whitelist sheet (`npm run whitelist`, §10), and the extra
+  files list (`extra-files.json`, with the files themselves in `files/`).
+- `catalog/`: the segment catalog, one file per pool (`hl1.json` from the practice kit, §3.1).
 - `tools/`: `dev-game.js` (create and run games on the local server), `fake-bxt.js` (a scripted
   BXT that joins, gets ready and plays runs), `echo.js` (a WebSocket echo server for checking BXT's
   WebSockets, e.g. under Wine).
@@ -874,8 +934,8 @@ C  web                 [ frontend against protocol v1 + mock server ............
 (The weeks are only there to show ordering and overlap, not estimates.)
 
 ### Step 0: before writing BXT code (in parallel, mostly talking)
-*Status: the protocol (0.3) is done, in JavaScript since the backend is. The catalog importer (0.2)
-isn't: the test boards were made by hand from the kit's saves.*
+*Status: the protocol (0.3) and the catalog importer (0.2) are done, in JavaScript since the
+backend is.*
 1. **Ask the Linux runners how they run HL WON.** Known: some use Wine and some Proton. Still to
    ask: which versions, Steam for Windows in the prefix, how `Injector.exe` is launched. The retry
    save stays `hard` until the community picks another name (§4.3).
@@ -883,7 +943,9 @@ isn't: the test boards were made by hand from the kit's saves.*
    `segments.json` (§3.1): trigger boxes, save name and SHA-256, label. Write it in this repo
    (`tools/catalog`, Node), next to the rules. Segments that end at the end of the game
    (Nihilanth, where the kit only sets a start trigger and BXT's autostop ends the time) get
-   `"end": { "type": "game_end" }` (§3.1), and BXT learns to handle it.
+   `"end": { "type": "game_end" }` (§3.1), and BXT learns to handle it. Every segment gets `pool`
+   and `game` (§3.3): the kit's are `hl1` and `valve`. The server checks a board is one `game`, the
+   manifest carries it, and BXT checks it against the game it runs in.
 3. **Protocol v1:** §6 as JSDoc types and checks in `src/protocol`. That's the contract the backend,
    the pages and BXT all code against.
 
@@ -980,8 +1042,8 @@ HL Steam support (§7 #11), custom map packs (`extra_files`), Steam auth tickets
 1. **Test networking in the game** against the local server (step 5), then show the time left,
    sudden death and how the game ended more clearly if needed.
 2. **Test downloads in the game** (step 6).
-3. **Catalog importer** (step 0.2), so boards can be made from the whole practice kit instead of by
-   hand, with `game_end` segments (BXT learns them then).
+3. **Test boards from the catalog in the game** (step 0.2), including Nihilanth (`game_end`) and
+   AM5.2 (`on_load`).
 4. Meanwhile: ask the Linux runners which Wine and Proton versions they use (step 0.1), and try the
    `bingo` branch there.
 
@@ -1209,6 +1271,8 @@ Decided since `BINGO-WEB.md` was written:
     Without it, BXT downloads from the Worker's own `/files/<sha256>` (§3.2).
 13. **Which segment is on each tile** (their request): the pages get it in a `tiles` message and in
     the snapshot, hidden like the labels, chapter included (§6, "Server → pages").
-14. The other protocol differences, listed under §6.
+14. **Pools** (planned, §3.3): the host picks which pools a board is drawn from, and the board
+    picker draws from those. Segments get `pool` and `game`, and a board is always one game.
+15. The other protocol differences, listed under §6.
 
 Nothing is open right now.
