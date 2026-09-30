@@ -9,7 +9,7 @@ import { ALL_TILES, isTeam, tileIndex } from "../protocol/ids.js";
 import { PROTOCOL_VERSION } from "../protocol/messages.js";
 import { DEFAULT_GAME, isSafeExtraPath } from "../protocol/segment.js";
 import { applyHandicaps } from "../rules/handicaps.js";
-import { cleanName, endingText, formatClock, resultText } from "./format.js";
+import { cleanName, endingText, formatClock, joinText, kickText, leaveText, resultText } from "./format.js";
 
 /**
  * @typedef {import("../protocol/ids.js").Team} Team
@@ -98,6 +98,11 @@ export class Changes {
    * @type {string[]}
    */
   events = [];
+  /**
+   * Texts for `event`, to everyone but one player, e.g. that they joined
+   * @type {{ text: string, except: string }[]}
+   */
+  othersEvents = [];
   /**
    * Messages for one player's BXT
    * @type {{ steamid64: string, message: ServerMessage }[]}
@@ -361,6 +366,7 @@ export class Room {
     }
     this.#stopAttempts(steamid64);
     changes.close.push({ steamid64, code: ban ? 4004 : 4001, reason: ban ? "banned" : "kicked" });
+    changes.events.push(kickText(player.name, ban));
     changes.lobby = changes.save = true;
     this.#boardChanged(changes);
     return changes;
@@ -393,8 +399,9 @@ export class Room {
    * The BXT socket of a player opened or closed
    * @param {string} steamid64
    * @param {boolean} connected
+   * @param {"left" | "lost" | null} [how] How it closed, for telling the others, `null` tells nobody
    */
-  setConnected(steamid64, connected) {
+  setConnected(steamid64, connected, how = null) {
     const changes = new Changes();
     const player = this.players[steamid64];
     if (player && player.connected !== connected) {
@@ -403,6 +410,10 @@ export class Room {
       player.connected = connected;
       this.#boardChanged(changes);
       changes.lobby = changes.save = true;
+      // Like joins, not once the game is over
+      if (!connected && how && this.state !== "finished") {
+        changes.othersEvents.push({ text: leaveText(player.name, how), except: steamid64 });
+      }
     }
     return changes;
   }
@@ -624,6 +635,11 @@ export class Room {
     }
 
     const changes = new Changes();
+    // The others are told, but not once the game is over
+    // engineBuild is only null before the player's first hello
+    if (this.state !== "finished") {
+      changes.othersEvents.push({ text: joinText(player.name, player.team, player.engineBuild !== null), except: steamid64 });
+    }
     if (player.engineBuild !== hello.engine_build) {
       player.ready = false;
     }

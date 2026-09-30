@@ -440,7 +440,7 @@ Built:
 
 | Name | Kind | Purpose |
 |---|---|---|
-| `bxt_bingo_join [code]` | cmd | Join an online game at `bxt_bingo_server` with the code from the game's page. Without a code it goes back to the last game (the session is kept in `<gamedir>/bingo_session.json`, with the times the server hasn't confirmed yet). |
+| `bxt_bingo_join [code]` | cmd | Join an online game at `bxt_bingo_server` with the code from the game's page. Without a code it goes back to the last game (the session is kept in `<gamedir>/bingo_session.json`, with the times the server hasn't confirmed yet). With a code while in a game, it leaves that game first; the last game's session is only replaced once the new game lets the player in. |
 | `bxt_bingo_manifest <file>` | cmd | Load a board from a local manifest file (`.json` optional), for offline play and testing. Not while online. |
 | `bxt_bingo_board` | cmd | Toggle the interactive board and its cursor. |
 | `bxt_bingo_play <tile>` | cmd | Start a tile by coordinate (`B3`) or label (`OAR2`). |
@@ -748,6 +748,10 @@ Notes:
 - `board` also carries the clock: `time_limit_ms` and `sudden_death_ms` are `null` when off. Sudden
   death is on while `clock_ms` is past the time limit and the game isn't over.
 - An invalid run is never sent as `attempt_result`, only as `attempt_invalidated`.
+- `event` texts: captures, steals and improved times, sudden death, the ending, voided results,
+  kicks and bans (`bot was banned`), and players joining (`naz joined RED`), coming back
+  (`naz rejoined`), leaving (`naz left`, BXT closed with 1000) or dropping (`naz lost connection`,
+  e.g. a crash). The player's own BXT doesn't get these, and nobody gets them once the game is over.
 - **Flagged results** (§5.2) count for now but wait for the host's review. `result_ack` still has
   the real `verdict` (so BXT plays the right sound and shows the right message), with
   `flagged: true` and the reasons in `detail`. Once the host accepts it, a resent result is acked

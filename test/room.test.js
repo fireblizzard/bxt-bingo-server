@@ -139,6 +139,7 @@ test("joining: full, locked, banned, finished", () => {
   assert.equal(room.players[RED].name, "renamed");
   const kicked = room.kick(BLUE, true);
   assert.deepEqual(kicked.close, [{ steamid64: BLUE, code: 4004, reason: "banned" }]);
+  assert.deepEqual(kicked.events, ["b was banned"]);
   assert.throws(() => room.addPlayer({ steamid64: BLUE, name: "b", team: "blue" }), /banned/);
   assert.deepEqual(room.snapshot(0).banned, [BLUE]);
   room.unban(BLUE);
@@ -146,10 +147,36 @@ test("joining: full, locked, banned, finished", () => {
   assert.throws(() => room.unban(BLUE), (e) => e instanceof RoomError && e.code === "unknown_player");
   room.addPlayer({ steamid64: BLUE, name: "b", team: "blue" });
   assert.equal(room.players[BLUE].team, "blue");
-  room.kick(BLUE, false);
+  assert.deepEqual(room.kick(BLUE, false).events, ["b was kicked"]);
   room.lock(true);
   assert.throws(() => room.addPlayer({ steamid64: RED2, name: "c", team: "red" }), /locked/);
   assert.throws(() => room.addPlayer({ steamid64: "123", name: "c", team: "red" }), /17 digits/);
+});
+
+test("the others are told when a player joins, rejoins or leaves, until the game is over", () => {
+  const room = makeRoom();
+  room.addPlayer({ steamid64: RED, name: "a", team: "red" });
+  room.addPlayer({ steamid64: BLUE, name: "b", team: null });
+  const hello = { type: /** @type {const} */ ("hello"), protocol: 1, bxt_version: "t", engine_build: "won", dll_sha256: null, steamid64: null };
+  /** @param {string} id */
+  const joined = (id) => {
+    const result = room.hello(id, hello, "tok", T0);
+    assert.ok("changes" in result);
+    return result.changes.othersEvents;
+  };
+  assert.deepEqual(joined(RED), [{ text: "a joined RED", except: RED }]);
+  assert.deepEqual(joined(BLUE), [{ text: "b joined", except: BLUE }]);
+  assert.deepEqual(joined(RED), [{ text: "a rejoined", except: RED }]);
+  room.setConnected(RED, true);
+  assert.deepEqual(room.setConnected(RED, false, "left").othersEvents, [{ text: "a left", except: RED }]);
+  room.setConnected(RED, true);
+  assert.deepEqual(room.setConnected(RED, false, "lost").othersEvents, [{ text: "a lost connection", except: RED }]);
+  room.setConnected(RED, true);
+  assert.deepEqual(room.setConnected(RED, false).othersEvents, []);
+  room.end(T0);
+  assert.deepEqual(joined(RED), []);
+  room.setConnected(RED, true);
+  assert.deepEqual(room.setConnected(RED, false, "left").othersEvents, []);
 });
 
 test("start needs everyone ready, unless forced", () => {

@@ -278,7 +278,10 @@ export class GameRoom extends DurableObject {
     // A replaced socket closes after the new one is in, so only the last one counts
     const others = this.ctx.getWebSockets(`bxt:${who.steamid64}`).filter((s) => s !== ws && s.readyState === WebSocket.OPEN);
     if (others.length === 0) {
-      await this.#apply(this.room.setConnected(who.steamid64, false), Date.now());
+      // BXT closes with 1000 when the player leaves, anything else is a lost connection
+      // Nobody is told about a socket that never got past hello, as its join wasn't announced
+      const how = !who.hello ? null : code === 1000 ? "left" : "lost";
+      await this.#apply(this.room.setConnected(who.steamid64, false, how), Date.now());
     }
   }
 
@@ -355,6 +358,9 @@ export class GameRoom extends DurableObject {
     }
     for (const text of changes.events) {
       everyone({ type: "event", text });
+    }
+    for (const { text, except } of changes.othersEvents) {
+      listeners.filter((l) => l.steamid64 !== except).forEach((l) => send(l.ws, { type: "event", text }));
     }
     if (changes.gameOver && room.state === "finished") {
       everyone(room.gameOverMessage());
