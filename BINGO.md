@@ -400,9 +400,10 @@ compatible with BXT's.
 **Code style: bingo code must read like the rest of BXT.**
 - Tabs, and the brace, naming and comment style of the surrounding files (e.g. `splits.*`,
   `discord_integration.*`, `Windows/interprocess.cpp`).
-- Same file layout: `BunnymodXT/bingo.hpp/.cpp` as `namespace Bingo` (file-local helpers in an
-  anonymous namespace, like `discord_integration.cpp`), with platform code split into
-  `BunnymodXT/Windows/bingo_platform.cpp` and `BunnymodXT/Linux/bingo_platform.cpp`, the same way
+- Same file layout: everything in `BunnymodXT/bingo/` as `namespace Bingo`. `bingo.hpp` is what the
+  rest of BXT uses, `bingo_internal.hpp` what the bingo files share, and each file keeps its own
+  helpers in an anonymous namespace, like `discord_integration.cpp`. Platform code is split into
+  `bingo/Windows/bingo_platform.cpp` and `bingo/Linux/bingo_platform.cpp`, the same way
   `interprocess.cpp` is split. Sources are added to the existing lists in `CMakeLists.txt`, and
   `bcrypt` (later `winhttp`) is linked alongside `opengl32` in the `WIN32` branch.
 - Cvars go in the `X(...)` list in `cvars.hpp` and are registered like the others. Commands are
