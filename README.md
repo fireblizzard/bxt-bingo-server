@@ -21,11 +21,11 @@ bugs and things to be polished, but just letting you know that it's not a one-pr
 | `worker/` | The Worker (routes) and the game Durable Object (`GameRoom`): sockets with hibernation, storage, alarms. `directory.js` stands in for the web side's D1 join codes. |
 | `rules/` | The standard rulesets made from the community's whitelist sheet, the handicap presets, and the list of extra files. |
 | `files/` | Extra files the game downloads, like the win sound, as listed in `rules/extra-files.json`. |
-| `catalog/` | The segment catalog, one file per pool: `hl1.json`, made from the Half-Life Practice Kit. |
+| `catalog/` | The segment catalog, one file per pool: `hl1-maps.json` and `hl1-micro.json`, made from the Half-Life Practice Kit. |
 | `boards/` | Test boards: BXT's offline manifests, also used by `dev-game create`. |
 | `tools/dev-game.js` | Creates and runs games on the local server, standing in for the web pages. |
 | `tools/fake-bxt.js` | A scripted BXT: joins with a code, gets ready and plays runs. |
-| `tools/catalog` | Makes `catalog/hl1.json` from the practice kit: `npm run catalog -- "<Half-Life Practice Kit folder>"`. |
+| `tools/catalog` | Makes the catalog's pools from the practice kit, or from cfgs of your own made like the kit's: `npm run catalog -- "<Half-Life Practice Kit folder>"`. |
 | `tools/whitelist` | Makes `rules/` from the sheet (exported as .ods, the colors matter): `npm run whitelist -- Whitelist.ods rules`. |
 | `tools/echo.js` | WebSocket echo server for checking BXT's WebSockets (e.g. under Wine): `npm run echo`, listens on `ws://127.0.0.1:8765`. |
 | `test/` | Tests for `src/`, the catalog importer and the whitelist tool. |
@@ -80,7 +80,7 @@ printed. Instead of `catalog`, a board file works too: `boards/` has the three t
 
 | Option | What it does |
 |---|---|
-| `--pools hl1` | Only segments from these pools (with `catalog`). |
+| `--pools hl1-maps` | Only segments from these pools (with `catalog`), comma-separated. |
 | `--segments nihi-1-0,oar-2-1` | These segments first, from A1 on, and the rest at random (with `catalog`). |
 | `--players red:naz,blue:bot` | Players to add, as `team:name`. `none:name` adds one without a team. |
 | `--ruleset scripted` | The rules: `scriptless` (the default) or `scripted`, from `rules/`. |
@@ -214,12 +214,38 @@ copy the new rules in when the whitelist changes. Online games draw from the cat
 
 ## The catalog
 
-`catalog/hl1.json` has every segment of the Half-Life Practice Kit that bingo can use (197), with
-its triggers, label, chapter and save hash. To make it again, e.g. after the kit changes:
+One file per pool, each segment with its triggers, label, chapter and save hash:
+
+| Pool | Segments |
+|---|---|
+| `hl1-maps` | The practice kit's whole maps (83), like `OAR2`, from Anomalous Materials to Nihilanth. |
+| `hl1-micro` | The kit's sections (114), the halves of those maps, like `OAR2.1` and `OAR2.2`. |
+
+To make them again, e.g. after the kit changes:
 
 ```sh
 npm run catalog -- "../Half-Life Practice Kit"
 ```
+
+Segments of your own are made the same way. Write a cfg for each one like the kit's: a start
+trigger whose command has `bxt_timer_start`, an end trigger with `bxt_timer_stop`, and
+`load <save>`. Name it freely, with lowercase letters, digits and `-` (`07.cfg`), and give it two
+comment lines with its tile text and chapter. The chapter is one name or prefix from the kit, e.g.
+the one the segment starts in:
+
+```
+// bingo label OC3-BP1
+// bingo chapter Office Complex
+```
+
+A segment that ends when the game ends (Nihilanth's death) has `// bingo end game` instead of an
+end trigger. Put the cfgs in a folder's `PracticeCfgs` and their saves in its `SAVE`, then:
+
+```sh
+npm run catalog -- "../My segments" --pool hl1-standard --prefix std
+```
+
+That writes `catalog/hl1-standard.json`, with ids like `std-07`, so they never match the kit's.
 
 It lists the cfgs it left out and why. A segment whose save or triggers changed should get a new
 id (BINGO.md §3.1), as the leaderboards key times by segment id.

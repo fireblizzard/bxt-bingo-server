@@ -4,7 +4,7 @@
 //   board.json: a manifest like BXT's offline test boards (boards/scriptless.json),
 //   or { "tiles": [{ "id": "A1", "segment": { ...Segment } }, ...] },
 //   or `catalog` for 25 segments from the catalog (catalog/*.json), or one catalog file
-//   --pools hl1,hazard-course      only from these pools (catalog only)
+//   --pools hl1-maps,hl1-micro     only from these pools (catalog only)
 //   --segments oar-2-0,uc-5-1      these first, in board order, and the rest at random (catalog only)
 //   --players red:ninya,blue:edd   players to add, each gets a join code
 //   --ruleset scriptless|scripted  default scriptless

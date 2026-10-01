@@ -185,13 +185,13 @@ For bingo, BXT should **not** `exec` arbitrary cfgs. That's where cheating and a
 one-time import script (server side, or a small tool) that parses the kit into a **segment catalog**:
 
 ```jsonc
-// catalog/hl1.json (server-side catalog, one file per pool; 197 segments from the kit today)
+// catalog/hl1-maps.json (server-side catalog, one file per pool, §3.3)
 // Authoritative shape: `Segment` in bxt-bingo-server/src/protocol/segment.js
 {
   "id": "oar-2-0",
   "label": "OAR2",            // short tile text; sections could be "OAR2.1", "OAR2.2"
   "chapter": "On A Rail",
-  "pool": "hl1",              // what the host picks from, §3.3
+  "pool": "hl1-maps",         // what the host picks from, §3.3
   "game": "valve",            // the game folder it's played in, §3.3
   "saves": { "won": { "sha256": "…", "size": 812345 } },   // per engine build (§3.1 notes)
   "start": { "type": "trigger", "corners": [[-2843.9,-447.6,-128.8],[-2801.3,-240.0,-3.6]] },
@@ -215,15 +215,25 @@ Notes:
   BXT's own timer would stop.
 - Several sections share a save and start trigger and only differ in the end trigger (`bp-1-0` and
   `bp-1-1` both load `bp1start`). That's fine: an attempt belongs to the tile the player picked.
-- **Built:** `npm run catalog -- "<Half-Life Practice Kit folder>"` writes `catalog/hl1.json`. The
-  cfg name is `<chapter>-<map>-<section>`: section 0 is the whole segment (label `OAR2`), 1 its
-  first half from the start save (`OAR2.1`) and 2 its second half from the half save (`OAR2.2`).
+- **Built:** `npm run catalog -- "<Half-Life Practice Kit folder>"` writes `catalog/hl1-maps.json`
+  and `catalog/hl1-micro.json`. The cfg name is `<chapter>-<map>-<section>`: section 0 is the
+  whole map (label `OAR2`, pool `hl1-maps`), 1 its first half from the start save (`OAR2.1`) and 2
+  its second half from the half save (`OAR2.2`), both in pool `hl1-micro`.
   The start trigger is the one whose command starts the timer and the end trigger the one that
   stops it, in either order. A cfg that starts the timer itself after loading (`am-5-2`) gets
   `on_load`, and Nihilanth gets `game_end`. Left out: `am-1-0`, which loads no save (it starts
   from the map itself, like the map-start segments in §3.3), and three triggers in `wgh-1-1` with
-  no timer command. The 197 segments use 135 different saves. The saves aren't in the repo: they
-  go to the file storage (`dev-game --saves` locally, the web side's upload in production).
+  no timer command. The 197 segments (83 maps and 114 sections) use 135 different saves. The
+  saves aren't in the repo: they go to the file storage (`dev-game --saves` locally, the web
+  side's upload in production).
+- **Segments of our own** (pool `hl1-standard`, about 50 of them, around 30 seconds each) are
+  written as cfgs like the kit's, with their own saves, and read by the same tool:
+  `npm run catalog -- "<folder>" --pool hl1-standard --prefix std`. Many of them cross chapters
+  (the end of Office Complex, all of We've Got Hostiles and the start of Blast Pit), so they're
+  named freely (`07.cfg`) and give their tile text and chapter in comment lines that the game
+  skips, `// bingo label OC3-BP1` and `// bingo chapter Office Complex`. One that ends with the
+  game has `// bingo end game` instead of an end trigger. Their ids start with the prefix
+  (`std-07`), so they never match an id from the kit.
 - **Segment ids are never reused.** The leaderboards key times by segment id, so a segment whose
   save or triggers change is a new segment with a new id, and old times aren't compared with new
   ones.
@@ -289,8 +299,9 @@ The host picks which **pools** a board is drawn from when making the lobby, e.g.
 campaign, or the campaign and the Hazard Course together. Every catalog segment has two fields
 for this from the start, so adding pools later doesn't change the format:
 
-- **`pool`**: the set it belongs to, shown to the host. For example `hl1` (the campaign),
-  `hazard-course`, `blue-shift`, `opfor`, `ag-bhop`, `ag-climb`, or a set of custom bingo or
+- **`pool`**: the set it belongs to, shown to the host. Today `hl1-maps` (the campaign's whole
+  maps from the practice kit), `hl1-micro` (their halves) and `hl1-standard` (our own segments,
+  §3.1). Later for example `hazard-course`, `blue-shift`, `opfor`, `ag-bhop`, `ag-climb`, or a set of custom bingo or
   challenge maps.
 - **`game`**: the game folder it's played in: `valve` for HL1 and the Hazard Course (the Hazard
   Course maps are part of Half-Life), `bshift` for Blue Shift, `gearbox` for Opposing Force, `ag`
@@ -960,7 +971,7 @@ or Node dependencies, so it's tested with plain Node (`npm test`):
   session tokens stored as hashes, files from R2, and a pages socket (`/ws/games/<id>`).
 - `rules/`: the standard rulesets from the whitelist sheet (`npm run whitelist`, §10), and the extra
   files list (`extra-files.json`, with the files themselves in `files/`).
-- `catalog/`: the segment catalog, one file per pool (`hl1.json` from the practice kit, §3.1).
+- `catalog/`: the segment catalog, one file per pool (`hl1-maps.json` and `hl1-micro.json` from the practice kit, §3.1).
 - `tools/`: `dev-game.js` (create and run games on the local server), `fake-bxt.js` (a scripted
   BXT that joins, gets ready and plays runs), `echo.js` (a WebSocket echo server for checking BXT's
   WebSockets, e.g. under Wine).
@@ -1001,7 +1012,7 @@ backend is.*
    (`tools/catalog`, Node), next to the rules. Segments that end at the end of the game
    (Nihilanth, where the kit only sets a start trigger and BXT's autostop ends the time) get
    `"end": { "type": "game_end" }` (§3.1), and BXT learns to handle it. Every segment gets `pool`
-   and `game` (§3.3): the kit's are `hl1` and `valve`. The server checks a board is one `game`, the
+   and `game` (§3.3): the kit's are `hl1-maps` or `hl1-micro`, and `valve`. The server checks a board is one `game`, the
    manifest carries it, and BXT checks it against the game it runs in.
 3. **Protocol v1:** §6 as JSDoc types and checks in `src/protocol`. That's the contract the backend,
    the pages and BXT all code against.
@@ -1332,6 +1343,9 @@ Decided since `BINGO-WEB.md` was written:
     the snapshot, hidden like the labels, chapter included (§6, "Server → pages").
 14. **Pools** (planned, §3.3): the host picks which pools a board is drawn from, and the board
     picker draws from those. Segments get `pool` and `game`, and a board is always one game.
+    The kit's 197 segments are now two pools, `hl1-maps` (83 whole maps) and `hl1-micro` (114
+    sections), in `catalog/hl1-maps.json` and `catalog/hl1-micro.json`. `catalog/hl1.json` is gone,
+    and the segment ids didn't change. `hl1-standard` (our own segments) comes later.
 15. The other protocol differences, listed under §6.
 16. **Demos** (§5.4): a second bucket, `DEMOS`, for the demos BXT uploads. Their review page can
     read the parts from `GET /api/games/<id>/demos/<attempt_id>/<part>` (limit it to the host and

@@ -7,7 +7,7 @@
  *   Never reused: a changed save or trigger makes a new segment with a new id
  * @property {string} label Short tile text, e.g. `OAR2`
  * @property {string} chapter e.g. `On A Rail`
- * @property {string} [pool] The set the host picks it from (BINGO.md §3.3), e.g. `hl1`. `hl1` if missing
+ * @property {string} [pool] The set the host picks it from (BINGO.md §3.3), e.g. `hl1-maps`. `hl1` if missing
  * @property {string} [game] The game folder it's played in, e.g. `valve` or `gearbox`. `valve` if missing
  *   A board is always one game, as a save from one game doesn't load in another
  * @property {Record<string, FileRef>} saves Start save per engine build (`won` now, `steam` later)

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { compareIds, parseCfg } from "../tools/catalog/kit.js";
+import { compareIds, kitPool, parseCfg } from "../tools/catalog/kit.js";
 
 /**
  * A kit cfg with these triggers and load
@@ -62,6 +62,55 @@ test("the timer started by the cfg, Nihilanth, and cfgs that aren't segments", (
 test("triggers without a command are left out with a note", () => {
   const result = used(parseCfg("wgh-1-1", cfg([...START, ...END, "bxt_triggers_add 1 1 1 2 2 2", "load wgh1start"])));
   assert.deepEqual(result.notes, ["1 trigger(s) without a timer command, left out"]);
+});
+
+test("a cfg of our own, with its label and chapter in comment lines", () => {
+  const own = (/** @type {string[]} */ lines) => cfg([...lines, ...START, ...END, "load std7"]);
+  const result = used(parseCfg("07", own(["// bingo label OC3-BP1", "//bingo chapter Office Complex"]), true));
+  assert.deepEqual(result.segment, {
+    id: "07",
+    label: "OC3-BP1",
+    chapter: "Office Complex",
+    save: "std7",
+    start: { type: "trigger", corners: [[1, 2, 3], [4, 5, 6]] },
+    end: { corners: [[-1.5, -2, -3], [7, 8, 9.25]] },
+  });
+  assert.deepEqual(result.notes, []);
+
+  // A chapter's prefix works too, and a long label gets a note
+  const long = used(parseCfg("08", own(["// bingo label WGH-ALL-OF-IT", "// bingo chapter WGH"]), true));
+  assert.equal(long.segment.chapter, "We've Got Hostiles");
+  assert.deepEqual(long.notes, ["the label WGH-ALL-OF-IT is longer than 8 characters, the board may cut it short"]);
+
+  assert.deepEqual(parseCfg("07", own(["// bingo chapter oc"]), true), { skip: "it has no // bingo label line" });
+  assert.deepEqual(parseCfg("07", own(["// bingo label OC3"]), true), { skip: "it has no // bingo chapter line" });
+  assert.deepEqual(parseCfg("07", own(["// bingo label OC3", "// bingo chapter Black Mesa"]), true), {
+    skip: "Black Mesa isn't a chapter, use a name like Office Complex or a prefix like oc",
+  });
+  assert.deepEqual(parseCfg("Std 07", own(["// bingo label OC3", "// bingo chapter oc"]), true), {
+    skip: "its name can only have lowercase letters, digits and -",
+  });
+});
+
+test("a cfg of our own that ends with the game", () => {
+  const lines = ["// bingo label INT3-NIHI", "// bingo chapter Interloper", "// bingo end game", ...START, "load std50"];
+  assert.deepEqual(used(parseCfg("50", cfg(lines), true)).segment.end, { type: "game_end" });
+
+  // Without the line it needs an end trigger
+  assert.deepEqual(parseCfg("50", cfg(lines.filter((l) => !l.includes("end game"))), true), { skip: "nothing stops the timer" });
+  assert.deepEqual(parseCfg("50", cfg([...lines, ...END]), true), {
+    skip: "it has an end trigger and // bingo end game, it can only have one of them",
+  });
+  assert.deepEqual(parseCfg("50", cfg([...lines.slice(0, 2), "// bingo end later", ...START, "load std50"]), true), {
+    skip: '// bingo end can only be "game", not later',
+  });
+});
+
+test("whole maps and sections go in their own pools", () => {
+  assert.equal(kitPool("oar-2-0"), "hl1-maps");
+  assert.equal(kitPool("am-10-0"), "hl1-maps");
+  assert.equal(kitPool("oar-2-1"), "hl1-micro");
+  assert.equal(kitPool("oar-2-2"), "hl1-micro");
 });
 
 test("the kit's order", () => {

@@ -58,17 +58,77 @@ function words(line) {
   return out;
 }
 
+// Labels longer than this may be cut short on the board
+const LONG_LABEL = 8;
+
+/**
+ * The `// bingo <key> <value>` lines of a cfg of our own, which the game skips as comments
+ * @param {string} text
+ */
+function bingoLines(text) {
+  /** @type {Record<string, string>} */
+  const lines = {};
+  for (const line of text.split(/\r?\n/)) {
+    const m = /^\s*\/\/\s*bingo\s+(\w+)\s+(.*?)\s*$/i.exec(line);
+    if (m) {
+      lines[m[1].toLowerCase()] = m[2];
+    }
+  }
+  return lines;
+}
+
 /**
  * The segment a cfg sets up, or why it isn't one bingo can use
+ * A kit cfg is named `<chapter>-<map>-<section>`, which gives its label and chapter
+ * A cfg of our own can have any name, and says them in `// bingo label` and `// bingo chapter` lines
  * @param {string} name The cfg's file name without `.cfg`
  * @param {string} text
+ * @param {boolean} [own] A cfg of our own instead of one from the kit
  * @returns {{ segment: KitSegment, notes: string[] } | { skip: string }}
  */
-export function parseCfg(name, text) {
-  const match = /^([a-z]+)-(\d+)-(\d+)$/.exec(name);
-  const chapter = match && CHAPTERS.find((c) => c.prefix === match[1]);
-  if (!match || !chapter) {
-    return { skip: "not a segment" };
+export function parseCfg(name, text, own = false) {
+  /** @type {string} */
+  let label;
+  /** @type {{ prefix: string, name: string } | undefined} */
+  let chapter;
+  // A cfg of our own ends with the game when it says so, a kit cfg when it's Nihilanth's
+  let endsWithGame;
+  /** @type {string[]} */
+  const notes = [];
+
+  if (own) {
+    if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(name)) {
+      return { skip: "its name can only have lowercase letters, digits and -" };
+    }
+    const lines = bingoLines(text);
+    if (!lines.label) {
+      return { skip: "it has no // bingo label line" };
+    }
+    if (!lines.chapter) {
+      return { skip: "it has no // bingo chapter line" };
+    }
+    const wanted = lines.chapter.toLowerCase();
+    chapter = CHAPTERS.find((c) => c.name.toLowerCase() === wanted || c.prefix === wanted);
+    if (!chapter) {
+      return { skip: `${lines.chapter} isn't a chapter, use a name like Office Complex or a prefix like oc` };
+    }
+    if (lines.end !== undefined && lines.end.toLowerCase() !== "game") {
+      return { skip: `// bingo end can only be "game", not ${lines.end}` };
+    }
+    label = lines.label;
+    endsWithGame = lines.end !== undefined;
+    if (label.length > LONG_LABEL) {
+      notes.push(`the label ${label} is longer than ${LONG_LABEL} characters, the board may cut it short`);
+    }
+  } else {
+    const match = /^([a-z]+)-(\d+)-(\d+)$/.exec(name);
+    chapter = match ? CHAPTERS.find((c) => c.prefix === match[1]) : undefined;
+    if (!match || !chapter) {
+      return { skip: "not a segment" };
+    }
+    const [, , map, section] = match;
+    label = chapter.prefix.toUpperCase() + map + (section === "0" ? "" : `.${section}`);
+    endsWithGame = chapter.prefix === "nihi";
   }
 
   /** @type {{ corners: Corners, command: string | null }[]} */
@@ -77,8 +137,6 @@ export function parseCfg(name, text) {
   let save = null;
   // The timer started by the cfg itself, after the load
   let startedByCfg = false;
-  /** @type {string[]} */
-  const notes = [];
 
   for (const line of text.split(/\r?\n/)) {
     const [command, ...args] = words(line.trim());
@@ -128,20 +186,34 @@ export function parseCfg(name, text) {
     return { skip: "nothing starts the timer" };
   }
 
+  if (own && endsWithGame && ends.length === 1) {
+    return { skip: "it has an end trigger and // bingo end game, it can only have one of them" };
+  }
+
   /** @type {KitSegment["end"]} */
   let end;
   if (ends.length === 1) {
     end = { corners: ends[0].corners };
-  } else if (chapter.prefix === "nihi") {
+  } else if (endsWithGame) {
     // BXT's timer stops by itself when Nihilanth dies
     end = { type: "game_end" };
   } else {
     return { skip: "nothing stops the timer" };
   }
 
-  const [, , map, section] = match;
-  const label = chapter.prefix.toUpperCase() + map + (section === "0" ? "" : `.${section}`);
   return { segment: { id: name, label, chapter: chapter.name, save, start, end }, notes };
+}
+
+/** The kit's pools, for the whole maps and for their sections */
+export const KIT_POOLS = { maps: "hl1-maps", sections: "hl1-micro" };
+
+/**
+ * The pool of a kit segment, from its cfg name
+ * Section 0 is a whole map, and 1 and 2 are its halves
+ * @param {string} id
+ */
+export function kitPool(id) {
+  return id.split("-")[2] === "0" ? KIT_POOLS.maps : KIT_POOLS.sections;
 }
 
 /**
