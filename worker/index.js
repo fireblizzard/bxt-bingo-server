@@ -4,6 +4,8 @@
 //   GET  /bxt                     BXT's socket, with X-Bingo-Join or X-Bingo-Session
 //   GET  /ws/games/<id>           live updates for pages and spectators
 //   GET  /api/games/<id>          a snapshot of a game
+//   PUT  /api/games/<id>/demos/<attempt_id>          a part of a demo the game asked for, from BXT
+//   GET  /api/games/<id>/demos/<attempt_id>/<part>   a stored demo part, for review (the web side limits who)
 //   GET  /files/<sha256>          saves and other files (production serves them from assets.jrik.dev)
 // Dev routes, only with DEV_ROUTES=true (`npm run dev`), standing in for the pages and Steam login:
 //   POST /dev/games                          create a game: { tiles, settings, ruleset }
@@ -17,7 +19,7 @@ import extraFiles from "../rules/extra-files.json";
 import handicapPresets from "../rules/handicaps.json";
 import scripted from "../rules/won-scripted.json";
 import scriptless from "../rules/won-scriptless.json";
-import { JOIN_HEADER, SESSION_HEADER } from "../src/protocol/index.js";
+import { DEMO_PART_HEADER, JOIN_HEADER, SESSION_HEADER, isUuid } from "../src/protocol/index.js";
 import { checkHandicapPresets } from "../src/rules/handicaps.js";
 import { newGameId, newSessionToken, sha256Hex } from "./secrets.js";
 
@@ -29,6 +31,7 @@ export { GameRoom } from "./game-room.js";
  * @property {DurableObjectNamespace<import("./game-room.js").GameRoom>} GAME
  * @property {DurableObjectNamespace<import("./directory.js").Directory>} DIRECTORY
  * @property {R2Bucket} FILES
+ * @property {R2Bucket} DEMOS
  * @property {string} [DEV_ROUTES]
  */
 
@@ -87,6 +90,9 @@ export default {
       const snapshot = await game(env, parts[2]).snapshot();
       return snapshot ? json(200, snapshot) : json(404, { error: "not_found" });
     }
+    if (parts[0] === "api" && parts[1] === "games" && parts[3] === "demos") {
+      return demoRoute(request, env, parts[2], parts.slice(4));
+    }
     if (parts[0] === "files" && parts.length === 2 && method === "GET") {
       const object = /^[0-9a-f]{64}$/.test(parts[1]) ? await env.FILES.get(parts[1]) : null;
       if (!object) {
@@ -142,6 +148,37 @@ async function connectBxt(request, env) {
     return json(403, { error: code ? "bad_code" : "bad_session" });
   }
   return response;
+}
+
+/**
+ * Demos (BINGO.md §5.4): BXT uploads the parts to the game, and review pages read them back
+ * @param {Request} request
+ * @param {Env} env
+ * @param {string} gameId
+ * @param {string[]} rest After /api/games/<id>/demos
+ */
+async function demoRoute(request, env, gameId, rest) {
+  if (!/^[0-9a-f]{16}$/.test(gameId) || !isUuid(rest[0] ?? "")) {
+    return json(404, { error: "not_found" });
+  }
+  if (rest.length === 1 && request.method === "PUT") {
+    // Only these go through to the game
+    const headers = new Headers();
+    for (const name of [SESSION_HEADER, DEMO_PART_HEADER]) {
+      headers.set(name, request.headers.get(name) ?? "");
+    }
+    return game(env, gameId).fetch(new Request(`https://game/demo/${rest[0]}`, { method: "PUT", headers, body: request.body }));
+  }
+  if (rest.length === 2 && /^\d{1,3}$/.test(rest[1]) && request.method === "GET") {
+    const object = await env.DEMOS.get(`demos/${gameId}/${rest[0]}/${Number(rest[1])}.dem`);
+    if (!object) {
+      return json(404, { error: "not_found" });
+    }
+    return new Response(object.body, {
+      headers: { "Content-Type": "application/octet-stream", "Content-Disposition": `attachment; filename="bingo_${rest[0]}_${Number(rest[1])}.dem"` },
+    });
+  }
+  return json(404, { error: "not_found" });
 }
 
 /**

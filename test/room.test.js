@@ -37,9 +37,14 @@ function makeTiles() {
   }));
 }
 
-/** @param {import("../src/room/room.js").RoomSettings} [settings] */
+/**
+ * Demos are off unless a test turns them on, and nothing is left to chance
+ * @param {import("../src/room/room.js").RoomSettings} [settings]
+ */
 function makeRoom(settings = {}) {
-  return new Room({ id: "g1", settings, tiles: makeTiles(), ruleset: scriptless, handicapPresets: presets });
+  const room = new Room({ id: "g1", settings: { demoRequests: false, ...settings }, tiles: makeTiles(), ruleset: scriptless, handicapPresets: presets });
+  room.random = { bytes: (count) => new Uint8Array(count).fill(0xab), chance: () => 1 };
+  return room;
 }
 
 /**
@@ -632,4 +637,91 @@ test("extra files: safe paths, in the manifest, and the ones in files/ match the
   assert.deepEqual(plain.manifestFor(RED).extra_files, []);
   assert.notEqual(room.manifestFor(RED).manifest_hash, plain.manifestFor(RED).manifest_hash, "a new extra file means downloading again");
   assert.throws(() => new Room({ id: "g", settings: {}, tiles: makeTiles(), ruleset: scriptless, handicapPresets: presets, extraFiles: [{ path: "../x.wav", sha256: "0".repeat(64), size: 1 }] }), /bad extra file/);
+});
+
+test("attempt_started gets a nonce for the demo", () => {
+  const { room } = runningRoom();
+  const changes = room.onMessage(RED, { type: "attempt_started", attempt_id: uuid(90), tile: "A1" }, T0);
+  assert.deepEqual(sent(changes, RED, "attempt_nonce"), [{ type: "attempt_nonce", attempt_id: uuid(90), nonce: "ab".repeat(16) }]);
+  assert.equal(room.running[uuid(90)].nonce, "ab".repeat(16));
+});
+
+test("demos are asked for top times, steals, flagged results and at random", () => {
+  const { room, run } = runningRoom({ demoRequests: true, demoRate: 0.5 });
+  // 9.8 s is within 3% of the 10 s reference time
+  const top = run(RED, "A1", 9800, 20_000);
+  assert.deepEqual(sent(top.changes, RED, "request_demo"), [
+    { type: "request_demo", attempt_id: top.attempt_id, upload_url: `/api/games/g1/demos/${top.attempt_id}` },
+  ]);
+  assert.deepEqual(room.demos[top.attempt_id].reasons, ["top time"]);
+  assert.equal(room.demos[top.attempt_id].nonce, "ab".repeat(16));
+
+  // A slow capture, and the random share doesn't pick it
+  const slow = run(RED, "B1", 20_000, 60_000);
+  assert.deepEqual(sent(slow.changes, RED, "request_demo"), []);
+
+  room.random.chance = () => 0.2;
+  const lucky = run(RED, "C1", 20_000, 90_000);
+  assert.deepEqual(room.demos[lucky.attempt_id].reasons, ["random"]);
+
+  const steal = run(BLUE, "B1", 15_000, 120_000);
+  assert.deepEqual(room.demos[steal.attempt_id].reasons, ["steal"]);
+
+  // Not for results that don't count
+  const slower = run(BLUE, "C1", 25_000, 150_000);
+  assert.equal(slower.ack.verdict, "not_faster");
+  assert.equal(room.demos[slower.attempt_id], undefined);
+});
+
+test("a demo is uploaded in parts", () => {
+  const { room, run } = runningRoom({ demoRequests: true });
+  const { attempt_id } = run(RED, "A1", 9800, 20_000);
+  assert.throws(() => room.demoPartKey(BLUE, attempt_id, 1, 2), /no demo was asked/);
+  assert.throws(() => room.demoPartKey(RED, attempt_id, 3, 2), /parts go from 1/);
+  assert.equal(room.demoPartKey(RED, attempt_id, 1, 2), `demos/g1/${attempt_id}/1.dem`);
+  room.addDemoPart(attempt_id, 1, 2, 1000);
+  assert.throws(() => room.demoPartKey(RED, attempt_id, 2, 3), /has 2 parts/);
+
+  const early = room.onMessage(RED, { type: "demo_uploaded", attempt_id, parts: 2 }, T0 + 30_000);
+  assert.match(sent(early, RED, "error")[0].detail, /1 of 2 parts/);
+
+  room.addDemoPart(attempt_id, 2, 2, 500);
+  room.onMessage(RED, { type: "demo_uploaded", attempt_id, parts: 2 }, T0 + 31_000);
+  assert.equal(room.demos[attempt_id].status, "uploaded");
+  assert.equal(room.demos[attempt_id].bytes, 1500);
+  assert.throws(() => room.demoPartKey(RED, attempt_id, 1, 2), /uploaded already/);
+  assert.equal(room.snapshot(T0).results.find((r) => r.attempt_id === attempt_id)?.demo?.status, "uploaded");
+});
+
+test("a demo that doesn't come voids the result", () => {
+  const { room, run } = runningRoom({ demoRequests: true, demoDeadlineMs: 60_000 });
+  const late = run(RED, "A1", 9800, 20_000);
+  assert.equal(room.nextAlarm(), T0 + 20_000 + 60_000);
+
+  // Asked for again after a reconnect
+  const hello = room.hello(RED, { type: "hello", protocol: 1, bxt_version: "t", engine_build: "won", dll_sha256: null, steamid64: null }, "tok", T0 + 30_000);
+  assert.ok("changes" in hello);
+  assert.equal(sent(hello.changes, RED, "welcome")[0].game_id, "g1");
+  assert.equal(sent(hello.changes, RED, "request_demo")[0].attempt_id, late.attempt_id);
+
+  const missing = room.tick(T0 + 80_000);
+  assert.equal(room.demos[late.attempt_id].status, "missing");
+  assert.ok(missing.logRewritten);
+  assert.match(missing.events[0], /red's S0 doesn't count, the demo didn't arrive/);
+  assert.equal(room.boardFor(null, T0 + 80_000).tiles[0].owner, null);
+
+  const gone = run(BLUE, "B1", 9900, 90_000);
+  const changes = room.onMessage(BLUE, { type: "demo_unavailable", attempt_id: gone.attempt_id, reason: "not on this PC" }, T0 + 91_000);
+  assert.equal(room.demos[gone.attempt_id].status, "unavailable");
+  assert.match(changes.events[0], /couldn't be sent/);
+});
+
+test("demos are stored with the room, the randomness isn't", () => {
+  const { room, run } = runningRoom({ demoRequests: true });
+  const { attempt_id } = run(RED, "A1", 9800, 20_000);
+  const stored = room.toJSON();
+  assert.ok(!("random" in stored));
+  const back = Room.restore(JSON.parse(JSON.stringify(stored)), room.game.log);
+  assert.equal(back.demos[attempt_id].status, "requested");
+  assert.equal(typeof back.random.chance, "function");
 });

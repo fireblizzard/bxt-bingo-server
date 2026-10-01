@@ -7,12 +7,13 @@
 //   --time <ms>       the time each run reports (default 30000, slow enough to beat when testing)
 //   --wait <ms>       how long each run takes for real (default 1000)
 //   --session <token> reconnect with a session token instead of a join code
+//   --no-demos        answer demo requests with demo_unavailable instead of uploading a fake demo
 //   --quiet           don't print every message
 // It reconnects with its session token when the connection drops, like BXT will
 
 import { randomUUID } from "node:crypto";
 
-import { JOIN_HEADER, PING_INTERVAL_MS, PING_TEXT, PROTOCOL_VERSION, SESSION_HEADER } from "../src/protocol/index.js";
+import { DEMO_PART_HEADER, JOIN_HEADER, PING_INTERVAL_MS, PING_TEXT, PROTOCOL_VERSION, SESSION_HEADER } from "../src/protocol/index.js";
 
 const args = process.argv.slice(2);
 
@@ -41,6 +42,7 @@ const tiles = option("tiles")?.split(",") ?? [];
 const timeMs = Number(option("time") ?? 30_000);
 const waitMs = Number(option("wait") ?? 1000);
 let session = option("session") ?? null;
+const noDemos = flag("no-demos");
 const quiet = flag("quiet");
 const [joinCode] = args;
 
@@ -77,6 +79,28 @@ function connect() {
       log(`> ${text}`);
     }
     ws.send(text);
+  };
+
+  /**
+   * Uploads a made-up demo in one part, the way BXT sends each part of a real one
+   * @param {{ attempt_id: string, upload_url: string }} request
+   */
+  const sendDemo = async (request) => {
+    if (noDemos) {
+      send({ type: "demo_unavailable", attempt_id: request.attempt_id, reason: "fake-bxt was started with --no-demos" });
+      return;
+    }
+    // A path is on the server BXT connected to, ws://host/bxt -> http://host/...
+    const url = request.upload_url.startsWith("/") ? new URL(request.upload_url, server.replace(/^ws/, "http")).href : request.upload_url;
+    const response = await fetch(url, {
+      method: "PUT",
+      headers: { [SESSION_HEADER]: session ?? "", [DEMO_PART_HEADER]: "1/1" },
+      body: new TextEncoder().encode(`fake demo of ${request.attempt_id}`),
+    });
+    log(`demo upload: ${response.status} ${await response.text()}`);
+    if (response.ok) {
+      send({ type: "demo_uploaded", attempt_id: request.attempt_id, parts: 1 });
+    }
   };
 
   const playNext = () => {
@@ -157,6 +181,9 @@ function connect() {
         break;
       case "event":
         log(`* ${message.text}`);
+        break;
+      case "request_demo":
+        sendDemo(message);
         break;
       case "game_over":
         over = true;

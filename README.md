@@ -100,6 +100,9 @@ printed. Instead of `catalog`, a board file works too: `boards/` has the three t
 | `showContesting` | `true` | Players see who's playing which tile. |
 | `countdownMs` | `5000` | The countdown before the start. |
 | `maxPlayers` | `16` | |
+| `demoRequests` | `true` | The server asks for the demos of some runs (BINGO.md §5.4). |
+| `demoRate` | `0.1` | The share of the other captures whose demo is asked for, at random. `1` asks for every one. |
+| `demoDeadlineMs` | `300000` (5 min) | A demo that isn't uploaded by then voids its result. |
 
 Some examples:
 
@@ -115,6 +118,9 @@ npm run dev-game -- create catalog --segments nihi-1-0 --players red:naz --saves
 
 # One of the test boards, with the saves from your game's SAVE folder
 npm run dev-game -- create boards/scriptless.json --players red:naz --saves ../valve_WON/SAVE
+
+# Every capture's demo is asked for, with a minute to upload it
+npm run dev-game -- create boards/scriptless.json --players red:naz,blue:bot --saves ../valve_WON/SAVE --settings demoRate=1,demoDeadlineMs=60000
 ```
 
 ### 3. Join
@@ -127,7 +133,8 @@ A fake player stands in for the other team. It joins, gets ready, and plays when
 ```sh
 npm run fake-bxt -- R58K-AD --runs 3
 # Options: --tiles A1,B1 (which tiles, in order), --time 30000 (the time it reports, in ms),
-# --wait 1000 (how long each run takes), --quiet
+# --wait 1000 (how long each run takes), --no-demos (answer demo requests with "unavailable"), --quiet
+# When the server asks for a demo, it uploads a made-up one, which the demo checks flag
 ```
 
 ### 4. Start and watch
@@ -143,6 +150,15 @@ npm run dev-game -- show cb3f1fd5683dfea9
 `show` prints the whole game: the settings, the players with their steamid64s
 (`lobby.players`), the board, every result with its `attempt_id` (`results`), the banned players
 and how it ended.
+
+A result whose demo was asked for has a `demo`: why (`reasons`), its `status` (`requested`,
+`uploaded`, `missing` or `unavailable`), and once it's uploaded the automatic `checks`, with their
+`flags` and a `summary`. Anything flagged also shows in the result's `review`. A part of the demo can
+be downloaded to watch it:
+
+```sh
+curl -o run.dem http://localhost:8787/api/games/cb3f1fd5683dfea9/demos/4ccb54de-0379-4e72-8fa2-33618b4c27b2/1
+```
 
 ### 5. Host actions
 

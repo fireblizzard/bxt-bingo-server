@@ -612,9 +612,9 @@ The realistic goals are:
 | **Only a verified load arms an attempt.** Either BXT loads the tile, or the player loads the retry save and its hash matches at load time. An attempt is only valid if the chain `verified load → start trigger → end trigger` is unbroken. | built | Loading your own mid-segment save, `changelevel` or `map` shortcuts. |
 | **Commands:** everything the player runs from a key or the console is checked before the engine runs it (the `Cbuf_AddText` hook during `Key_Event`), with aliases and `exec`ed configs expanded. It has to be on the ruleset's allowed list, and scriptless allows one command per key or line. `map`, `changelevel`, `restart` and loads are handled by the command wrappers (§4.3). | built | Console cheats, TAS helpers, scripts in scriptless runs. |
 | **Cvar ruleset:** from the community whitelist sheet (§10), checked every frame while armed or running: fixed values (`sv_cheats 0`, `host_framerate 0`, …), BXT cvars that must stay at their default, and cvars that can't change during a run. **The list is server-defined**, so the community decides it per game. | built | Slowmo via `host_framerate`, cheats, disallowed helpers. |
-| **Three independent clocks in every result:** BXT game time, server-DLL time delta (`gpGlobals->time`, via `ServerDLL::GetTime()`), and frame count + real time from `QueryPerformanceCounter`. Plus the time spent in loading screens. | to build (step 7) | Timer tampering or inconsistencies. Slowmo shows up as real time much greater than game time. |
-| **Per-attempt demo** with BXT runtime data (`RuntimeData`, already TEA-embedded in demos and already used by the community for run verification). Record automatically from ARMED, keep locally, name it by `attempt_id`. | to build (step 7) | Gives evidence for any dispute, and the tools to read it already exist. |
-| **Build fingerprint:** BXT git revision + hash of `BunnymodXT.dll` + loaded modules list (runtime data already collects `LoadedModules`). | to build (step 7) | Unofficial builds and unexpected injected DLLs. Spoofable, but it raises the bar (see §5.3). |
+| **Clocks in every result:** BXT's timer, how far the server's time (`sv.time`) went, the frames, and real time, with the real time the game didn't run (loading screens and pauses) counted apart. | built | Timer tampering or inconsistencies. Slowmo shows up as real time much greater than game time. |
+| **Per-attempt demo** with BXT runtime data (§5.4): every online attempt is recorded from the load of the tile's save, as `bingo_<attempt_id>_1.dem` and on. | built | Gives evidence for any dispute, and the tools to read it already exist. |
+| **Build fingerprint:** BXT git revision + SHA-256 of `BunnymodXT.dll` in `hello` and in the demo, and the loaded modules list (runtime data already collects `LoadedModules`). | built | Unofficial builds and unexpected injected DLLs. Spoofable, but it raises the bar (see §5.3). |
 
 ### 5.2 Server side (can't be faked by the client)
 - **Server-clock sanity:** BXT sends `attempt_started` when the start trigger fires and
@@ -666,6 +666,52 @@ and a cheat is likely to be caught:
 - **For bigger events:** required streams or video, so a cheat has to survive both the demo and the
   video.
 
+### 5.4 Evidence (built)
+How the demos work, BXT and server together:
+
+1. **Recording.** When the tile's save loads online, BXT makes the attempt's id and records it with
+   BXT's own autorecord: `bingo_<attempt_id>_1.dem`, then `_2`, `_3` after each load in a segmented
+   run. The name has the id, so it never overwrites a demo. Demos of runs that reach the end
+   trigger stay in the game folder (with or without a time that counts), and the player deletes old
+   ones when they like. Demos of runs that were cancelled or restarted before the end are deleted.
+   While the run goes, `stop`, `record`, `bxt_record` and `bxt_autorecord` are blocked (dropped
+   with a message, the run goes on), so the player can't stop or replace bingo's demo. A demo the
+   player was recording before ends at the tile's load, as any load ends a demo.
+2. **What's written into the demo** (a new `BingoInfo` runtime data type, a JSON object):
+   - at the start trigger: the game id, the server, the player (SteamID, name, team), the tile and
+     its label, the save's SHA-256, the manifest hash, the run type and handicaps, the match clock,
+     BXT's version and its DLL's SHA-256, and the UTC time;
+   - `nonce`: a random value the server sends in `attempt_nonce` as soon as `attempt_started` arrives.
+     It can't be known before the run started, so a clean demo of an earlier run can't be uploaded
+     instead;
+   - at the end: the time and the other clocks.
+3. **Asking for demos.** After a result that counts, the server asks for its demo (`request_demo`)
+   when the result is flagged, a steal, or within 3% of the reference time, and otherwise for
+   `demoRate` of them at random (10% by default). The player can't know which runs get checked.
+   Requests that weren't answered are sent again after a reconnect.
+4. **Uploading.** BXT sends each part with an HTTP `PUT` to `upload_url`, with the session header and
+   `X-Bingo-Demo-Part: <part>/<parts>`, then `demo_uploaded`. The server keeps them in the `DEMOS`
+   bucket as `demos/<game>/<attempt_id>/<part>.dem`. A demo BXT can't find (e.g. deleted) is answered
+   with `demo_unavailable`.
+5. **Missing demos void the result:** `demo_unavailable`, or no upload within `demoDeadlineMs`
+   (5 minutes by default). Everyone gets an event saying so.
+6. **Automatic checks** (`src/demo`): the server reads the parts (the demo format and BXT's runtime
+   data, decrypted like BXT does) and checks that:
+   - the demo has BXT's runtime data, this run's start and end, and the server's nonce;
+   - the time at the end matches the reported one, and the frames add up to it (without pauses);
+   - the movement cvars the server sent each frame (gravity, speeds, step size, …) and the cvars
+     BXT wrote down follow the player's ruleset, handicaps included;
+   - health never went down in a no damage run;
+   - the player was at the start trigger when the timer started and at the end trigger when it stopped;
+   - the demo was recorded with the same BXT build that played.
+
+   Anything off goes to the host's review list with the result, like the other flags. Nothing is
+   rejected by the checks alone. Not checked yet: the commands each key ran (the ruleset's command
+   list needs the game's cvar list to tell commands from cvars).
+7. **Reviewing:** `GET /api/games/<id>/demos/<attempt_id>/<part>` gives a stored part back for the
+   review page (the web side decides who may). The snapshot has each result's `demo`: why it was
+   asked for, its status, and the checks' flags and summary.
+
 ---
 
 ## 6. Protocol (BXT ⇄ server)
@@ -702,12 +748,13 @@ elsewhere), `4004` banned, `1012` server restarting (reconnect). Any other drop:
   "server_time_delta_ms": 12346, "frames": 1234, "real_ms": 12410, "load_ms": 0,
   "save_sha256": "…", "ruleset_ok": true, "demo": "bingo_<id>.dem" }
 { "type": "attempt_invalidated", "attempt_id": "uuid", "tile": "B3", "reason": "host_framerate must be 0" }
-{ "type": "demo_uploaded", "attempt_id": "uuid" }             // after the HTTP PUT, when requested
+{ "type": "demo_uploaded", "attempt_id": "uuid", "parts": 2 }  // after the HTTP PUTs, when requested
+{ "type": "demo_unavailable", "attempt_id": "uuid", "reason": "…" }   // the demo isn't there (voids the result)
 ```
 
 ### Server → BXT
 ```jsonc
-{ "type": "welcome", "session_token": "…", "server_time": "…Z",
+{ "type": "welcome", "session_token": "…", "server_time": "…Z", "game_id": "…" /* written into demos */,
   "player": { "steamid64": "7656…", "name": "ninya", "team": "red" /* or null, unassigned */ } }
 { "type": "pong" }
 { "type": "lobby", "state": "lobby" /* countdown, running, finished */, "locked": false,
@@ -727,7 +774,8 @@ elsewhere), `4004` banned, `1012` server restarting (reconnect). Any other drop:
 { "type": "result_ack", "attempt_id": "uuid", "flagged": false, "detail": null,
   "verdict": "captured" | "stolen" | "improved" | "not_faster" | "locked" | "game_over" | "rejected" }
 { "type": "event", "text": "BLUE stole OAR2 — 11.980 (Player2)" }   // message feed
-{ "type": "request_demo", "attempt_id": "uuid", "upload_url": "https://bingo.jrik.dev/api/demos/<attempt_id>" }
+{ "type": "attempt_nonce", "attempt_id": "uuid", "nonce": "…32 hex…" }   // right after attempt_started (§5.4)
+{ "type": "request_demo", "attempt_id": "uuid", "upload_url": "/api/games/<id>/demos/<attempt_id>" }
 { "type": "game_over", "winner": "red" /* or null */,
   "reason": "line" | "most_tiles" | "sudden_death" | "tiebreaker" | "draw" | "host_ended",
   "tiebreaker": null /* or which one decided */, "line": ["A2","B2","C2","D2","E2"] /* or null */ }
@@ -761,8 +809,12 @@ Notes:
   before (§10.2).
 - Error codes: `bad_message`, `protocol_unsupported`, `engine_build_unsupported`, `not_running`,
   `tile_not_playable`, `rate_limited`.
-- Demo upload: an HTTP `PUT` to `upload_url` with the `X-Bingo-Session` header and the `.dem` as the
-  body (at most 64 MB), then `demo_uploaded`.
+- Demo upload: an HTTP `PUT` per part to `upload_url` (a path is on the server BXT connected to),
+  with the `X-Bingo-Session` header, `X-Bingo-Demo-Part: <part>/<parts>` and the part as the body
+  (at most 64 MB, 64 parts), then `demo_uploaded` (§5.4).
+- `attempt_result`: `server_time_delta_ms` is how far the server's time went during the run,
+  `frames` the frames it ran, and `load_ms` the real time the game didn't run (loading screens and
+  pauses). `demo` is the demo's name without `_<part>.dem`, or `null` offline.
 
 Changes from the web side's §5, to tell them: `hello` keeps `engine_build`; `tile_selected`
 drives contesting as they proposed, and the board's list is called `contesting` (their `running`);
@@ -1031,6 +1083,8 @@ the demo, the other clocks and `dll_sha256` (step 7), and the SteamID in `hello`
   `download_progress`/`ready`, and the lobby/countdown display.
 
 ### Step 7: PR "evidence"
+*Status: written (§5.4), to test in the game: recording, `request_demo` and the upload, and the demo
+checks on a real bingo demo. Not yet: checking the commands in the demo.*
 - Three clocks in results (§5.1), per-attempt demo recording, and demo upload on `request_demo`
   (the cvar ruleset from the manifest is already built). Server side: the server-clock check,
   plausibility flags, the demo checks (§5.3), and void in the admin API.
@@ -1279,5 +1333,9 @@ Decided since `BINGO-WEB.md` was written:
 14. **Pools** (planned, §3.3): the host picks which pools a board is drawn from, and the board
     picker draws from those. Segments get `pool` and `game`, and a board is always one game.
 15. The other protocol differences, listed under §6.
+16. **Demos** (§5.4): a second bucket, `DEMOS`, for the demos BXT uploads. Their review page can
+    read the parts from `GET /api/games/<id>/demos/<attempt_id>/<part>` (limit it to the host and
+    moderators), and each result in the snapshot has a `demo` with its status and the checks' flags.
+    Lobby settings: `demoRequests` (on), `demoRate` (0.1) and `demoDeadlineMs` (5 minutes).
 
 Nothing is open right now.

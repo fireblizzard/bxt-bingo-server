@@ -25,3 +25,8 @@ new_sqlite_classes = ["GameRoom", "Directory"]
 [[r2_buckets]]
 binding = "FILES"
 bucket_name = "bingo-files"
+
+# The demos BXT uploads when a game asks for them (BINGO.md §5.4)
+[[r2_buckets]]
+binding = "DEMOS"
+bucket_name = "bingo-demos"

@@ -1,7 +1,7 @@
 // Strict checks for what BXT sends: anything unexpected is refused, not guessed at
 
 import { isTileId, isUuid } from "./ids.js";
-import { MAX_MESSAGE_BYTES } from "./messages.js";
+import { MAX_DEMO_PARTS, MAX_MESSAGE_BYTES } from "./messages.js";
 
 /** Longest time any measured interval may have: 24 h */
 export const MAX_TIME_MS = 24 * 60 * 60 * 1000;
@@ -98,6 +98,11 @@ const FIELDS = {
   },
   demo_uploaded: {
     attempt_id: uuid,
+    parts: int(1, MAX_DEMO_PARTS),
+  },
+  demo_unavailable: {
+    attempt_id: uuid,
+    reason: label(200),
   },
 };
 

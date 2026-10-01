@@ -6,7 +6,9 @@
 
 import { DurableObject } from "cloudflare:workers";
 
-import { CLOSE, PING_TEXT, PONG_TEXT, parseClientMessage } from "../src/protocol/index.js";
+import { CLOSE, DEMO_PART_HEADER, MAX_DEMO_PART_BYTES, PING_TEXT, PONG_TEXT, SESSION_HEADER, isUuid, parseClientMessage } from "../src/protocol/index.js";
+import { checkDemo } from "../src/demo/check.js";
+import { parseDemo } from "../src/demo/parse.js";
 import { DEFAULT_FILES_URL, Room, RoomError } from "../src/room/index.js";
 import { sha256Hex } from "./secrets.js";
 
@@ -115,11 +117,7 @@ export class GameRoom extends DurableObject {
       lock: () => room.lock(Boolean(args.locked)),
       start: () => room.start(now, Boolean(args.force)),
       end: () => room.end(now),
-      void: () => {
-        const changes = room.void(args.attempt_id, now);
-        this.rewriteLog = true;
-        return changes;
-      },
+      void: () => room.void(args.attempt_id, now),
       accept: () => room.accept(args.attempt_id),
     };
     const run = Object.hasOwn(actions, name) ? actions[name] : undefined;
@@ -150,6 +148,67 @@ export class GameRoom extends DurableObject {
     throw e;
   }
 
+  /**
+   * One part of a demo the game asked for (BINGO.md §5.4), from BXT through the Worker
+   * @param {Request} request With the session header, `X-Bingo-Demo-Part: <part>/<parts>` and the part as the body
+   * @param {string} attemptId
+   */
+  async #uploadDemo(request, attemptId) {
+    const room = /** @type {Room} */ (this.room);
+    const steamid64 = this.sessions[await sha256Hex(request.headers.get(SESSION_HEADER) ?? "")];
+    if (!steamid64 || !room.players[steamid64]) {
+      return json(403, { error: "bad_session" });
+    }
+    const part = /^(\d{1,3})\/(\d{1,3})$/.exec(request.headers.get(DEMO_PART_HEADER) ?? "");
+    if (!isUuid(attemptId) || !part) {
+      return json(400, { error: "bad_request", message: `needs ${DEMO_PART_HEADER}: <part>/<parts>` });
+    }
+    const [number, total] = [Number(part[1]), Number(part[2])];
+    let key;
+    try {
+      key = room.demoPartKey(steamid64, attemptId, number, total);
+    } catch (e) {
+      const refusal = this.#refusal(e);
+      return json(refusal.error === "unknown_attempt" ? 404 : 409, refusal);
+    }
+    const body = await request.arrayBuffer();
+    if (body.byteLength === 0 || body.byteLength > MAX_DEMO_PART_BYTES) {
+      return json(413, { error: "bad_size", message: `a part is 1 byte to ${MAX_DEMO_PART_BYTES} bytes` });
+    }
+    await /** @type {{ DEMOS: R2Bucket }} */ (this.env).DEMOS.put(key, body);
+    await this.#apply(room.addDemoPart(attemptId, number, total, body.byteLength), Date.now());
+    return json(200, { ok: true });
+  }
+
+  /**
+   * Reads an uploaded demo's parts and runs the automatic checks on them
+   * @param {string} attemptId
+   */
+  async #checkDemo(attemptId) {
+    const room = /** @type {Room} */ (this.room);
+    const demo = room.demos[attemptId];
+    if (!demo?.parts) {
+      return;
+    }
+    const parts = [];
+    const flags = [];
+    for (let part = 1; part <= demo.parts; part++) {
+      const object = await /** @type {{ DEMOS: R2Bucket }} */ (this.env).DEMOS.get(room.demoKey(attemptId, part));
+      if (!object) {
+        flags.push(`demo: part ${part} isn't stored`);
+        continue;
+      }
+      try {
+        parts.push(parseDemo(new Uint8Array(await object.arrayBuffer())));
+      } catch (e) {
+        flags.push(`demo: part ${part} can't be read (${/** @type {Error} */ (e).message})`);
+      }
+    }
+    const checks = parts.length > 0 ? checkDemo(parts, room.demoExpectation(attemptId)) : { flags: [], summary: { parts: 0 } };
+    checks.flags.unshift(...flags);
+    await this.#apply(room.demoChecked(attemptId, checks), Date.now());
+  }
+
   // Sockets
 
   /**
@@ -162,6 +221,10 @@ export class GameRoom extends DurableObject {
     const room = this.room;
     if (!room) {
       return json(404, { error: "not_found" });
+    }
+    const demo = /^\/demo\/([^/]+)$/.exec(new URL(request.url).pathname);
+    if (demo && request.method === "PUT") {
+      return this.#uploadDemo(request, demo[1]);
     }
     const pair = new WebSocketPair();
     const [client, server] = Object.values(pair);
@@ -292,7 +355,11 @@ export class GameRoom extends DurableObject {
 
   async alarm() {
     if (this.room) {
-      await this.#apply(this.room.tick(Date.now()), Date.now());
+      const now = Date.now();
+      const changes = this.room.tick(now);
+      // The next deadline may be another kind (the game's or a demo's), so it's always set again
+      changes.alarm = true;
+      await this.#apply(changes, now);
     }
   }
 
@@ -305,6 +372,7 @@ export class GameRoom extends DurableObject {
    */
   async #apply(changes, now) {
     const room = /** @type {Room} */ (this.room);
+    this.rewriteLog ||= changes.logRewritten;
     if (changes.save) {
       await this.#save(false);
     }
@@ -376,6 +444,10 @@ export class GameRoom extends DurableObject {
       } else {
         await this.ctx.storage.setAlarm(at);
       }
+    }
+
+    for (const attemptId of changes.demoChecks) {
+      await this.#checkDemo(attemptId);
     }
   }
 

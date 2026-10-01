@@ -19,6 +19,13 @@ export const PING_INTERVAL_MS = 30_000;
 export const JOIN_HEADER = "X-Bingo-Join";
 export const SESSION_HEADER = "X-Bingo-Session";
 
+// Demos (BINGO.md §5.4): each part is an HTTP PUT with this header, e.g. `2/3`
+export const DEMO_PART_HEADER = "X-Bingo-Demo-Part";
+/** Most parts one demo may have, one per load in a segmented run */
+export const MAX_DEMO_PARTS = 64;
+/** Largest part, a few minutes of demo is a few MB */
+export const MAX_DEMO_PART_BYTES = 64 * 1024 * 1024;
+
 /**
  * Why the server refused the connection before the upgrade
  * Sent as HTTP 403 with `{ "error": <code> }`, or HTTP 429 when rate limited
@@ -117,10 +124,19 @@ export const CLOSE = Object.freeze({
  */
 
 /**
- * The demo asked for with `request_demo` has been uploaded
+ * The demo asked for with `request_demo` has been uploaded, all its parts
  * @typedef {object} DemoUploaded
  * @property {"demo_uploaded"} type
  * @property {string} attempt_id
+ * @property {number} parts One per load in a segmented run
+ */
+
+/**
+ * BXT can't send the demo asked for, e.g. it isn't on the player's PC any more. The result is voided
+ * @typedef {object} DemoUnavailable
+ * @property {"demo_unavailable"} type
+ * @property {string} attempt_id
+ * @property {string} reason
  */
 
 /**
@@ -128,7 +144,7 @@ export const CLOSE = Object.freeze({
  * @property {"ping"} type
  */
 
-/** @typedef {Hello | TileSelected | Ping | DownloadProgress | Ready | AttemptStarted | AttemptResult | AttemptInvalidated | DemoUploaded} ClientMessage */
+/** @typedef {Hello | TileSelected | Ping | DownloadProgress | Ready | AttemptStarted | AttemptResult | AttemptInvalidated | DemoUploaded | DemoUnavailable} ClientMessage */
 
 // Server -> BXT
 
@@ -144,6 +160,7 @@ export const CLOSE = Object.freeze({
  * @property {"welcome"} type
  * @property {string} session_token Sent in the session header to reconnect
  * @property {string} server_time ISO 8601
+ * @property {string} game_id Written into the demos, to find the game a run was in
  * @property {PlayerInfo} player
  */
 
@@ -306,7 +323,17 @@ export const VERDICTS = Object.freeze([
  */
 
 /**
- * BXT uploads the demo with an HTTP PUT to `upload_url`, with the session header, then sends `demo_uploaded`
+ * The answer to `attempt_started`: a random value BXT writes into the run's demo (BINGO.md §5.4)
+ * @typedef {object} AttemptNonce
+ * @property {"attempt_nonce"} type
+ * @property {string} attempt_id
+ * @property {string} nonce 32 lowercase hex digits
+ */
+
+/**
+ * BXT uploads each part of the demo with an HTTP PUT to `upload_url`, with the session header and
+ * `X-Bingo-Demo-Part: <part>/<parts>`, then sends `demo_uploaded`
+ * A path like `/api/games/<id>/demos/<attempt_id>` is on the server BXT connected to
  * @typedef {object} RequestDemo
  * @property {"request_demo"} type
  * @property {string} attempt_id
@@ -394,4 +421,4 @@ export const ERROR_CODES = Object.freeze([
  * @property {"pong"} type
  */
 
-/** @typedef {Welcome | Lobby | Manifest | RoundStart | Board | ResultAck | EventMessage | RequestDemo | GameOver | ErrorMessage | Pong | TilesMessage} ServerMessage */
+/** @typedef {Welcome | Lobby | Manifest | RoundStart | Board | ResultAck | EventMessage | AttemptNonce | RequestDemo | GameOver | ErrorMessage | Pong | TilesMessage} ServerMessage */

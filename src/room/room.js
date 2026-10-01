@@ -6,7 +6,7 @@
 
 import { Game } from "../game/game.js";
 import { ALL_TILES, isTeam, tileIndex } from "../protocol/ids.js";
-import { PROTOCOL_VERSION } from "../protocol/messages.js";
+import { MAX_DEMO_PARTS, PROTOCOL_VERSION } from "../protocol/messages.js";
 import { DEFAULT_GAME, isSafeExtraPath } from "../protocol/segment.js";
 import { applyHandicaps } from "../rules/handicaps.js";
 import { cleanName, endingText, formatClock, joinText, kickText, leaveText, resultText } from "./format.js";
@@ -34,7 +34,30 @@ import { cleanName, endingText, formatClock, joinText, kickText, leaveText, resu
  *   countdownMs?: number,
  *   maxPlayers?: number,
  *   teamColors?: Partial<Record<Team, string>>,
+ *   demoRequests?: boolean,
+ *   demoRate?: number,
+ *   demoDeadlineMs?: number,
  * }} RoomSettings
+ */
+
+/**
+ * A demo the server asked a player for (BINGO.md §5.4)
+ * `requested`: waiting for the upload, `uploaded`: all parts are stored,
+ * `missing`: it didn't come (the result was voided), `unavailable`: BXT said it doesn't have it (voided too)
+ * @typedef {object} DemoRecord
+ * @property {string} player
+ * @property {TileId} tile
+ * @property {number} timeMs
+ * @property {string | null} nonce The random value sent at `attempt_started`, which the demo has to contain
+ * @property {string[]} reasons Why it was asked for, e.g. `steal`, `random`
+ * @property {number} requestedAt Unix ms
+ * @property {number} deadline Unix ms
+ * @property {"requested" | "uploaded" | "missing" | "unavailable"} status
+ * @property {string | null} reason Why it's missing or unavailable
+ * @property {number | null} parts How many parts the upload has, from the first part
+ * @property {number[]} received The parts stored so far
+ * @property {number} bytes
+ * @property {{ flags: string[], summary: object } | null} [checks] The automatic checks, once they ran
  */
 
 /**
@@ -50,6 +73,7 @@ import { cleanName, endingText, formatClock, joinText, kickText, leaveText, resu
  * @property {string | null} engineBuild From `hello`
  * @property {string | null} bxtVersion
  * @property {string | null} reportedSteamid The SteamID BXT reported, when it isn't this player's
+ * @property {string | null} [dllSha256] From `hello`, to compare with the demos
  * @property {number} invalidated Runs BXT reported as invalid
  */
 
@@ -58,6 +82,7 @@ import { cleanName, endingText, formatClock, joinText, kickText, leaveText, resu
  * @property {string} player
  * @property {TileId} tile
  * @property {number} startedAt Unix ms, on the server's clock
+ * @property {string} [nonce] Sent to BXT with `attempt_nonce`
  */
 
 /**
@@ -117,6 +142,34 @@ export class Changes {
   alarm = false;
   /** Something changed that has to be stored */
   save = false;
+  /** A void changed older log entries, so the whole log has to be stored again */
+  logRewritten = false;
+  /**
+   * Demos that were uploaded, to check (checkDemo in src/demo)
+   * @type {string[]}
+   */
+  demoChecks = [];
+
+  /**
+   * Adds what another call changed
+   * @param {Changes} other
+   */
+  merge(other) {
+    this.lobby ||= other.lobby;
+    this.board ||= other.board;
+    this.roundStart ||= other.roundStart;
+    this.gameOver ||= other.gameOver;
+    this.tiles ||= other.tiles;
+    other.manifests.forEach((id) => this.manifests.add(id));
+    this.events.push(...other.events);
+    this.othersEvents.push(...other.othersEvents);
+    this.send.push(...other.send);
+    this.close.push(...other.close);
+    this.alarm ||= other.alarm;
+    this.save ||= other.save;
+    this.logRewritten ||= other.logRewritten;
+    this.demoChecks.push(...other.demoChecks);
+  }
 }
 
 // A result may take this much longer on the server's clock than its game time plus loads
@@ -126,6 +179,10 @@ const CLOCK_TOLERANCE_RATIO = 0.05;
 
 // Times under this share of the segment's reference are flagged
 const REFERENCE_RATIO = 0.97;
+
+// Demos (BINGO.md §5.4)
+/** A time this close to the reference time, or faster, always gets its demo asked for */
+const TOP_TIME_RATIO = 1.03;
 
 // Files are downloaded from the server BXT connected to, unless the Worker says otherwise
 export const DEFAULT_FILES_URL = "/files/";
@@ -191,6 +248,11 @@ export class Room {
       countdownMs: settings.countdownMs ?? 5000,
       maxPlayers: settings.maxPlayers ?? 16,
       teamColors: { ...settings.teamColors },
+      // Demos are asked for unless it's turned off: always for flagged results, steals and top times,
+      // and for this share of the other captures, at random
+      demoRequests: settings.demoRequests ?? true,
+      demoRate: settings.demoRate ?? 0.1,
+      demoDeadlineMs: settings.demoDeadlineMs ?? 5 * 60_000,
     });
     /** @type {Record<TileId, Segment>} */
     this.tiles = Object.fromEntries(tiles.map((t) => [t.id, t.segment]));
@@ -226,11 +288,22 @@ export class Room {
     this.suddenDeathAnnounced = false;
     /** Someone played with a handicap, so the times go on the handicapped leaderboards */
     this.handicapsUsed = false;
+    /**
+     * Demos asked for, by attempt_id
+     * @type {Record<string, DemoRecord>}
+     */
+    this.demos = {};
+    /** Randomness for nonces and random demo requests, replaced in tests. Not stored */
+    this.random = {
+      /** @param {number} count */
+      bytes: (count) => crypto.getRandomValues(new Uint8Array(count)),
+      chance: () => Math.random(),
+    };
   }
 
   /** Everything to store, apart from the game's log */
   toJSON() {
-    const { game, filesUrl, ...rest } = this;
+    const { game, filesUrl, random, ...rest } = this;
     return { ...rest, gameNow: game.now, gameTeamStats: game.teamStats };
   }
 
@@ -287,6 +360,7 @@ export class Room {
         engineBuild: null,
         bxtVersion: null,
         reportedSteamid: null,
+        dllSha256: null,
         invalidated: 0,
       };
     } else {
@@ -489,11 +563,16 @@ export class Room {
 
   /** When the caller has to call tick() next, unix ms, or null */
   nextAlarm() {
+    const demo = this.#nextDemoDeadline();
+    /** @type {number | null} */
+    let game = null;
     if (this.state === "countdown") {
-      return this.startsAt;
+      game = this.startsAt;
+    } else {
+      const deadline = this.state === "running" ? this.game.nextDeadlineMs() : null;
+      game = deadline === null || this.startsAt === null ? null : this.startsAt + deadline;
     }
-    const deadline = this.state === "running" ? this.game.nextDeadlineMs() : null;
-    return deadline === null || this.startsAt === null ? null : this.startsAt + deadline;
+    return game === null ? demo : demo === null ? game : Math.min(game, demo);
   }
 
   /**
@@ -502,6 +581,11 @@ export class Room {
    */
   tick(now) {
     const changes = new Changes();
+    for (const [attemptId, demo] of Object.entries(this.demos)) {
+      if (demo.status === "requested" && now >= demo.deadline) {
+        this.#demoMissing(attemptId, "missing", `not uploaded within ${Math.round(this.settings.demoDeadlineMs / 1000)} s`, now, changes);
+      }
+    }
     if (this.state === "countdown" && this.startsAt !== null && now >= this.startsAt) {
       this.state = "running";
       changes.lobby = changes.alarm = changes.save = true;
@@ -580,6 +664,17 @@ export class Room {
       throw new RoomError("unknown_attempt", `no counting result ${attemptId}`);
     }
     const changes = new Changes();
+    this.#voidInto(attemptId, now, changes);
+    return changes;
+  }
+
+  /**
+   * @param {string} attemptId A result that counts
+   * @param {number} now
+   * @param {Changes} changes
+   */
+  #voidInto(attemptId, now, changes) {
+    changes.logRewritten = true;
     const before = this.game.ending;
     this.game.void(attemptId);
     delete this.reviews[attemptId];
@@ -595,7 +690,6 @@ export class Room {
     }
     changes.save = true;
     this.#boardChanged(changes);
-    return changes;
   }
 
   /**
@@ -611,6 +705,133 @@ export class Room {
     const changes = new Changes();
     changes.save = true;
     return changes;
+  }
+
+  // Demos (BINGO.md §5.4)
+
+  /** @param {string} attemptId */
+  #requestDemoMessage(attemptId) {
+    return /** @type {const} */ ({ type: "request_demo", attempt_id: attemptId, upload_url: `/api/games/${this.id}/demos/${attemptId}` });
+  }
+
+  /**
+   * Where one part of a demo goes in storage, if the player may upload it now
+   * @param {string} steamid64 From the session header
+   * @param {string} attemptId
+   * @param {number} part From 1
+   * @param {number} total
+   */
+  demoPartKey(steamid64, attemptId, part, total) {
+    const demo = this.demos[attemptId];
+    if (!demo || demo.player !== steamid64) {
+      throw new RoomError("unknown_attempt", "no demo was asked for this run");
+    }
+    if (demo.status !== "requested") {
+      throw new RoomError("bad_state", `the demo is ${demo.status} already`);
+    }
+    if (!Number.isInteger(total) || total < 1 || total > MAX_DEMO_PARTS || !Number.isInteger(part) || part < 1 || part > total) {
+      throw new RoomError("bad_request", `parts go from 1 to at most ${MAX_DEMO_PARTS}`);
+    }
+    if (demo.parts !== null && demo.parts !== total) {
+      throw new RoomError("bad_request", `the demo has ${demo.parts} parts`);
+    }
+    return this.demoKey(attemptId, part);
+  }
+
+  /**
+   * Where a part of a demo is in storage
+   * @param {string} attemptId
+   * @param {number} part From 1
+   */
+  demoKey(attemptId, part) {
+    return `demos/${this.id}/${attemptId}/${part}.dem`;
+  }
+
+  /**
+   * One part of a demo is stored
+   * @param {string} attemptId
+   * @param {number} part
+   * @param {number} total
+   * @param {number} bytes
+   */
+  addDemoPart(attemptId, part, total, bytes) {
+    const demo = this.demos[attemptId];
+    demo.parts = total;
+    if (!demo.received.includes(part)) {
+      demo.received.push(part);
+      demo.received.sort((a, b) => a - b);
+      demo.bytes += bytes;
+    }
+    const changes = new Changes();
+    changes.save = true;
+    return changes;
+  }
+
+  /**
+   * A demo that didn't come voids its result, as the run can't be checked
+   * @param {string} attemptId
+   * @param {"missing" | "unavailable"} status
+   * @param {string} why
+   * @param {number} now
+   * @param {Changes} changes
+   */
+  #demoMissing(attemptId, status, why, now, changes) {
+    const demo = this.demos[attemptId];
+    demo.status = status;
+    demo.reason = why;
+    changes.save = changes.alarm = true;
+
+    const entry = this.game.log.find((e) => e.kind === "result" && e.submission.attemptId === attemptId);
+    if (entry && entry.kind === "result" && !entry.voided) {
+      const player = this.players[demo.player];
+      changes.events.push(`${player?.name ?? "A player"}'s ${this.tiles[demo.tile].label} doesn't count, the demo ${status === "missing" ? "didn't arrive" : "couldn't be sent"}`);
+      this.#voidInto(attemptId, now, changes);
+    }
+  }
+
+  /**
+   * What the demo of a run should show, for checkDemo
+   * @param {string} attemptId An uploaded demo
+   * @returns {import("../demo/check.js").Expectation}
+   */
+  demoExpectation(attemptId) {
+    const demo = this.demos[attemptId];
+    const player = this.players[demo.player];
+    const segment = this.tiles[demo.tile];
+    return {
+      attemptId,
+      nonce: demo.nonce,
+      timeMs: demo.timeMs,
+      dllSha256: player?.dllSha256 ?? null,
+      ruleset: player ? this.#rulesetFor(player) : this.ruleset,
+      start: segment.start,
+      end: segment.end,
+    };
+  }
+
+  /**
+   * The automatic checks of a demo ran. Anything they found goes to the host's review
+   * @param {string} attemptId
+   * @param {{ flags: string[], summary: object }} checks
+   */
+  demoChecked(attemptId, checks) {
+    const demo = this.demos[attemptId];
+    demo.checks = checks;
+    const changes = new Changes();
+    changes.save = true;
+    const entry = this.game.log.find((e) => e.kind === "result" && e.submission.attemptId === attemptId);
+    if (checks.flags.length > 0 && entry && entry.kind === "result" && !entry.voided) {
+      const review = (this.reviews[attemptId] ??= { player: demo.player, tile: demo.tile, timeMs: demo.timeMs, flags: [], accepted: false });
+      review.flags.push(...checks.flags);
+      review.accepted = false;
+    }
+    return changes;
+  }
+
+  /** The next demo deadline, or null */
+  #nextDemoDeadline() {
+    const deadlines = Object.values(this.demos).flatMap((d) => (d.status === "requested" ? [d.deadline] : []));
+    return deadlines.length > 0 ? Math.min(...deadlines) : null;
   }
 
   // BXT
@@ -646,6 +867,7 @@ export class Room {
     player.engineBuild = hello.engine_build;
     player.bxtVersion = hello.bxt_version;
     player.reportedSteamid = hello.steamid64 !== null && hello.steamid64 !== steamid64 ? hello.steamid64 : null;
+    player.dllSha256 = hello.dll_sha256;
     changes.save = changes.lobby = true;
 
     /** @param {ServerMessage} message */
@@ -654,6 +876,7 @@ export class Room {
       type: "welcome",
       session_token: sessionToken,
       server_time: iso(now),
+      game_id: this.id,
       player: { steamid64, name: player.name, team: player.team },
     });
     send(this.lobbyMessage());
@@ -664,6 +887,12 @@ export class Room {
     send(this.boardFor(steamid64, now));
     if (this.state === "finished") {
       send(this.gameOverMessage());
+    }
+    // Demos asked for before a crash or a dropped connection are asked for again
+    for (const [attemptId, demo] of Object.entries(this.demos)) {
+      if (demo.player === steamid64 && demo.status === "requested") {
+        send(this.#requestDemoMessage(attemptId));
+      }
     }
     return { changes };
   }
@@ -717,7 +946,10 @@ export class Room {
           error("tile_not_playable", `${message.tile} isn't playable for your team`);
         } else {
           this.#stopAttempts(steamid64);
-          this.running[message.attempt_id] = { player: steamid64, tile: message.tile, startedAt: now };
+          // BXT writes it into the run's demo, so an older demo can't stand in for this run
+          const nonce = [...this.random.bytes(16)].map((b) => b.toString(16).padStart(2, "0")).join("");
+          this.running[message.attempt_id] = { player: steamid64, tile: message.tile, startedAt: now, nonce };
+          changes.send.push({ steamid64, message: { type: "attempt_nonce", attempt_id: message.attempt_id, nonce } });
           changes.save = true;
           if (player.tile !== message.tile) {
             player.tile = message.tile;
@@ -737,9 +969,26 @@ export class Room {
         changes.save = true;
         break;
       }
-      case "demo_uploaded":
-        // Demos come with evidence (BINGO.md §9 step 7)
+      case "demo_uploaded": {
+        const demo = this.demos[message.attempt_id];
+        if (!demo || demo.player !== steamid64 || demo.status !== "requested") {
+          error("bad_message", "no demo was asked for this run");
+        } else if (demo.parts !== message.parts || demo.received.length !== message.parts) {
+          error("bad_message", `${demo.received.length} of ${message.parts} parts arrived`);
+        } else {
+          demo.status = "uploaded";
+          changes.save = true;
+          changes.demoChecks.push(message.attempt_id);
+        }
         break;
+      }
+      case "demo_unavailable": {
+        const demo = this.demos[message.attempt_id];
+        if (demo && demo.player === steamid64 && demo.status === "requested") {
+          this.#demoMissing(message.attempt_id, "unavailable", `BXT couldn't send it: ${message.reason}`, now, changes);
+        }
+        break;
+      }
     }
     return changes;
   }
@@ -837,6 +1086,39 @@ export class Room {
         ack(verdict, `held for review: ${flags.join("; ")}`, true);
       } else {
         ack(verdict, null);
+      }
+
+      // The demo is asked for after the result, so the player can't know which runs get checked (BINGO.md §5.3)
+      const reasons = [];
+      if (flags.length > 0) {
+        reasons.push("flagged");
+      }
+      if (verdict === "stolen") {
+        reasons.push("steal");
+      }
+      if (segment.reference_time_ms && r.time_ms <= segment.reference_time_ms * TOP_TIME_RATIO) {
+        reasons.push("top time");
+      }
+      if (reasons.length === 0 && this.random.chance() < this.settings.demoRate) {
+        reasons.push("random");
+      }
+      if (reasons.length > 0 && this.settings.demoRequests) {
+        this.demos[r.attempt_id] = {
+          player: player.steamid64,
+          tile: r.tile,
+          timeMs: r.time_ms,
+          nonce: attempt?.nonce ?? null,
+          reasons,
+          requestedAt: now,
+          deadline: now + this.settings.demoDeadlineMs,
+          status: "requested",
+          reason: null,
+          parts: null,
+          received: [],
+          bytes: 0,
+        };
+        changes.send.push({ steamid64: player.steamid64, message: this.#requestDemoMessage(r.attempt_id) });
+        changes.alarm = true;
       }
     } else {
       ack(verdict, null);
@@ -1081,6 +1363,7 @@ export class Room {
                 verdict: e.verdict,
                 voided: e.voided,
                 review: this.reviews[e.submission.attemptId] ?? null,
+                demo: this.demos[e.submission.attemptId] ?? null,
               },
             ]
           : [],

@@ -111,7 +111,8 @@ test("attempt messages", () => {
 
   ok({ type: "attempt_started", attempt_id: ID, tile: "E5" });
   ok({ type: "attempt_invalidated", attempt_id: ID, tile: "E5", reason: "host_framerate must be 0" });
-  ok({ type: "demo_uploaded", attempt_id: ID });
+  ok({ type: "demo_uploaded", attempt_id: ID, parts: 2 });
+  ok({ type: "demo_unavailable", attempt_id: ID, reason: "the demo isn't on the player's PC" });
 });
 
 test("small messages", () => {
