@@ -9,6 +9,7 @@
  * @typedef {import("../protocol/segment.js").CvarRule} CvarRule
  * @typedef {import("../protocol/segment.js").StartCondition} StartCondition
  * @typedef {import("../protocol/segment.js").EndCondition} EndCondition
+ * @typedef {import("../protocol/segment.js").Requirement} Requirement
  */
 
 /**
@@ -20,6 +21,7 @@
  * @property {Ruleset} ruleset The player's own, with their handicaps
  * @property {StartCondition} start
  * @property {EndCondition} end
+ * @property {Requirement[]} [requirements]
  */
 
 /**
@@ -241,15 +243,17 @@ export function checkDemo(parts, expect) {
 
   // Where the player was when the timer started and stopped
   /** @param {number} index */
-  const originAt = (index) => {
+  const viewAt = (index) => {
     for (let i = Math.min(index, frames.length - 1); i >= 0; i--) {
       const { frame } = frames[i];
       if (frame.kind === "view") {
-        return frame.origin;
+        return frame;
       }
     }
     return null;
   };
+  /** @param {number} index */
+  const originAt = (index) => viewAt(index)?.origin ?? null;
   if (start && expect.start.type === "trigger") {
     const origin = originAt(start.index);
     if (origin && !atBox(origin, expect.start.corners)) {
@@ -260,6 +264,20 @@ export function checkDemo(parts, expect) {
     const origin = originAt(finish.index);
     if (origin && !atBox(origin, expect.end.corners)) {
       flags.push(`demo: the run ended at ${origin.map(round).join(" ")}, away from the end trigger`);
+    }
+  }
+
+  // Each area on the way, and the health at the end
+  // Armor and weapons aren't in the demo's frames, so BXT's word is all there is for them
+  if (start && finish) {
+    for (const requirement of expect.requirements ?? []) {
+      if (requirement.type === "area" && !views.some(({ frame }) => atBox(frame.origin, requirement.corners))) {
+        flags.push(`demo: the player never went through the area of "${requirement.text}"`);
+      }
+      const end = requirement.type === "health" ? viewAt(finish.index) : null;
+      if (requirement.type === "health" && end && end.health < requirement.min) {
+        flags.push(`demo: the run ended with ${end.health} health, "${requirement.text}" needs ${requirement.min}`);
+      }
     }
   }
 

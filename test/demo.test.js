@@ -179,3 +179,14 @@ test("what the checks catch", () => {
   const jupiter = { ...scriptless, cvars: [...scriptless.cvars.filter((/** @type {any} */ r) => r.name !== "sv_gravity"), { name: "sv_gravity", op: "set", value: "2021.61" }] };
   assert.deepEqual(flags({ gravity: 2021.61 }, { ruleset: jupiter }), []);
 });
+
+test("requirements: the areas on the way and the health at the end", () => {
+  const flags = (/** @type {Parameters<typeof runDemo>[0]} */ change, /** @type {any[]} */ requirements) =>
+    checkDemo([runDemo(change)], expect({ requirements })).flags;
+  const onTheWay = { type: "area", text: "Halfway", corners: [[495, 0, 0], [505, 10, 10]] };
+  const elsewhere = { type: "area", text: "The lab", corners: [[0, 500, 0], [10, 510, 10]] };
+  const healthy = { type: "health", text: "95 HP at the end", min: 95 };
+  assert.deepEqual(flags({}, [onTheWay, healthy, { type: "weapon", text: "Crossbow", weapon: "weapon_crossbow" }]), []);
+  assert.deepEqual(flags({}, [elsewhere]), ['demo: the player never went through the area of "The lab"']);
+  assert.ok(flags({ hurt: true }, [healthy]).includes('demo: the run ended with 90 health, "95 HP at the end" needs 95'));
+});

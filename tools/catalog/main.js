@@ -76,6 +76,7 @@ function run(kit, outDir, own) {
       saves: { won: { sha256: createHash("sha256").update(bytes).digest("hex"), size: bytes.length } },
       start: segment.start,
       end: segment.end,
+      ...(segment.requirements.length > 0 ? { requirements: segment.requirements } : {}),
       reference_time_ms: null,
     });
   }

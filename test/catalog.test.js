@@ -33,6 +33,7 @@ test("a whole segment and its halves", () => {
       save: "oar2start",
       start: { type: "trigger", corners: [[1, 2, 3], [4, 5, 6]] },
       end: { corners: [[-1.5, -2, -3], [7, 8, 9.25]] },
+      requirements: [],
     },
     notes: [],
   });
@@ -74,6 +75,7 @@ test("a cfg of our own, with its label and chapter in comment lines", () => {
     save: "std7",
     start: { type: "trigger", corners: [[1, 2, 3], [4, 5, 6]] },
     end: { corners: [[-1.5, -2, -3], [7, 8, 9.25]] },
+    requirements: [],
   });
   assert.deepEqual(result.notes, []);
 
@@ -103,6 +105,47 @@ test("a cfg of our own that ends with the game", () => {
   });
   assert.deepEqual(parseCfg("50", cfg([...lines.slice(0, 2), "// bingo end later", ...START, "load std50"]), true), {
     skip: '// bingo end can only be "game", not later',
+  });
+});
+
+test("requirements, from // bingo require lines", () => {
+  const lines = [
+    "// bingo label OC3",
+    "// bingo chapter oc",
+    "// bingo require Go through the lab",
+    "bxt_triggers_add 10 20 30 40 50 60",
+    'bxt_triggers_setcommand "echo Lab done"',
+    ...START,
+    "//bingo require 50 HP or more at the end | health 50",
+    "// bingo require Some armor | armor 1",
+    "// bingo require Have the crossbow | weapon weapon_crossbow",
+    ...END,
+    "load std7",
+  ];
+  const result = used(parseCfg("07", cfg(lines), true));
+  assert.deepEqual(result.segment.requirements, [
+    { type: "area", text: "Go through the lab", corners: [[10, 20, 30], [40, 50, 60]] },
+    { type: "health", text: "50 HP or more at the end", min: 50 },
+    { type: "armor", text: "Some armor", min: 1 },
+    { type: "weapon", text: "Have the crossbow", weapon: "weapon_crossbow" },
+  ]);
+  // The area's trigger isn't the start or end, and isn't left out with a note
+  assert.deepEqual(result.segment.start, { type: "trigger", corners: [[1, 2, 3], [4, 5, 6]] });
+  assert.deepEqual(result.notes, []);
+
+  const head = ["// bingo label OC3", "// bingo chapter oc"];
+  const skip = (/** @type {string[]} */ more) => parseCfg("07", cfg([...head, ...more, ...START, ...END, "load std7"]), true);
+  assert.deepEqual(parseCfg("07", cfg([...head, ...START, ...END, "load std7", "// bingo require Go through the lab"]), true), {
+    skip: "// bingo require Go through the lab has no bxt_triggers_add after it",
+  });
+  assert.deepEqual(skip(["// bingo require | health 5"]), { skip: "a // bingo require line without a text: // bingo require | health 5" });
+  assert.deepEqual(skip(["// bingo require Healthy | health lots"]), { skip: "// bingo require Healthy: health needs a whole number above 0" });
+  assert.deepEqual(skip(["// bingo require Armed | weapon crossbow"]), { skip: "// bingo require Armed: weapon needs a weapon's name like weapon_crossbow" });
+  assert.deepEqual(skip(["// bingo require Press it | fired o2"]), {
+    skip: "// bingo require Press it: unknown kind fired, use area, health <number>, armor <number> or weapon <weapon_name>",
+  });
+  assert.deepEqual(skip(["// bingo require Lab", "bxt_triggers_add 1 1 1 2 2 2", 'bxt_triggers_setcommand "bxt_timer_stop"']), {
+    skip: "the trigger of // bingo require Lab also starts or stops the timer",
   });
 });
 

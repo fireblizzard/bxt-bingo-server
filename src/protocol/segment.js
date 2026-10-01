@@ -14,8 +14,21 @@
  *   Saves aren't portable between builds
  * @property {StartCondition} start
  * @property {EndCondition} end
+ * @property {Requirement[]} [requirements] What the player has to do before the end counts, none if missing
  * @property {number | null} reference_time_ms Community gold, as a reference for how long it takes
  */
+
+/**
+ * Something the player has to do in a run, so a segment can't be cheesed by skipping part of it
+ * The end trigger only counts once every requirement is met. Until then the run keeps going
+ * `area` the player goes through the box after the start
+ * `health` and `armor` at least `min` when the player reaches the end
+ * `weapon` the player has the weapon when reaching the end, e.g. `weapon_crossbow`
+ * @typedef {{ text: string } & (({ type: "area" } & TriggerBox) | { type: "health" | "armor", min: number } | { type: "weapon", weapon: string })} Requirement
+ */
+
+/** @type {readonly Requirement["type"][]} */
+export const REQUIREMENT_TYPES = Object.freeze(["area", "health", "armor", "weapon"]);
 
 /** The pool and game of segments that don't say, like the ones on the first test boards */
 export const DEFAULT_POOL = "hl1";

@@ -40,6 +40,7 @@ export const CHAPTERS = [
  * @property {string} save The save it loads, without `.sav`
  * @property {import("../../src/protocol/segment.js").StartCondition} start
  * @property {import("../../src/protocol/segment.js").EndCondition} end
+ * @property {import("../../src/protocol/segment.js").Requirement[]} requirements From `// bingo require` lines
  */
 
 /** @typedef {[[number, number, number], [number, number, number]]} Corners */
@@ -60,6 +61,51 @@ function words(line) {
 
 // Labels longer than this may be cut short on the board
 const LONG_LABEL = 8;
+
+// Requirement texts longer than this make a wide list on the screen
+const LONG_REQUIREMENT = 40;
+
+/**
+ * A `// bingo require <text> | <kind>` line, without the trigger an area takes
+ * No kind, or `area`, is an area that the next bxt_triggers_add gives
+ * @param {string} line
+ * @returns {{ requirement: import("../../src/protocol/segment.js").Requirement | { type: "area", text: string } } | { error: string } | null}
+ */
+function requireLine(line) {
+  const m = /^\/\/\s*bingo\s+require\b\s*(.*?)\s*$/i.exec(line);
+  if (!m) {
+    return null;
+  }
+  const bar = m[1].indexOf("|");
+  const text = (bar < 0 ? m[1] : m[1].slice(0, bar)).trim();
+  const [kind = "area", value, ...rest] = (bar < 0 ? "" : m[1].slice(bar + 1)).trim().split(/\s+/).filter((w) => w !== "");
+  if (text === "") {
+    return { error: `a // bingo require line without a text: ${line}` };
+  }
+  const usage = `use area, health <number>, armor <number> or weapon <weapon_name>`;
+  if (rest.length > 0) {
+    return { error: `// bingo require ${text}: too many words after |, ${usage}` };
+  }
+  switch (kind.toLowerCase()) {
+    case "area":
+      return value === undefined ? { requirement: { type: "area", text } } : { error: `// bingo require ${text}: area takes nothing after it` };
+    case "health":
+    case "armor": {
+      const min = Number(value);
+      if (!Number.isInteger(min) || min < 1) {
+        return { error: `// bingo require ${text}: ${kind} needs a whole number above 0` };
+      }
+      return { requirement: { type: /** @type {"health" | "armor"} */ (kind.toLowerCase()), text, min } };
+    }
+    case "weapon":
+      if (!/^weapon_[a-z0-9_]+$/.test(value ?? "")) {
+        return { error: `// bingo require ${text}: weapon needs a weapon's name like weapon_crossbow` };
+      }
+      return { requirement: { type: "weapon", text, weapon: /** @type {string} */ (value) } };
+    default:
+      return { error: `// bingo require ${text}: unknown kind ${kind}, ${usage}` };
+  }
+}
 
 /**
  * The `// bingo <key> <value>` lines of a cfg of our own, which the game skips as comments
@@ -131,14 +177,37 @@ export function parseCfg(name, text, own = false) {
     endsWithGame = chapter.prefix === "nihi";
   }
 
-  /** @type {{ corners: Corners, command: string | null }[]} */
+  /** @type {{ corners: Corners, command: string | null, requirement: number | null }[]} */
   const triggers = [];
   /** @type {string | null} */
   let save = null;
   // The timer started by the cfg itself, after the load
   let startedByCfg = false;
+  /** @type {any[]} */
+  const requirements = [];
+  // An area requirement waiting for its trigger
+  /** @type {number | null} */
+  let area = null;
 
   for (const line of text.split(/\r?\n/)) {
+    const required = requireLine(line.trim());
+    if (required && "error" in required) {
+      return { skip: required.error };
+    }
+    if (required) {
+      if (area !== null) {
+        return { skip: `// bingo require ${requirements[area].text} has no bxt_triggers_add after it` };
+      }
+      if (required.requirement.text.length > LONG_REQUIREMENT) {
+        notes.push(`the requirement "${required.requirement.text}" is longer than ${LONG_REQUIREMENT} characters`);
+      }
+      requirements.push(required.requirement);
+      if (required.requirement.type === "area") {
+        area = requirements.length - 1;
+      }
+      continue;
+    }
+
     const [command, ...args] = words(line.trim());
     if (command === "bxt_triggers_add") {
       const numbers = args.map(Number);
@@ -146,7 +215,11 @@ export function parseCfg(name, text, own = false) {
         return { skip: `a trigger without 6 numbers: ${line.trim()}` };
       }
       const [x1, y1, z1, x2, y2, z2] = numbers;
-      triggers.push({ corners: [[x1, y1, z1], [x2, y2, z2]], command: null });
+      triggers.push({ corners: [[x1, y1, z1], [x2, y2, z2]], command: null, requirement: area });
+      if (area !== null) {
+        requirements[area].corners = [[x1, y1, z1], [x2, y2, z2]];
+        area = null;
+      }
     } else if (command === "bxt_triggers_setcommand") {
       if (triggers.length === 0) {
         return { skip: "a trigger command before any trigger" };
@@ -159,11 +232,22 @@ export function parseCfg(name, text, own = false) {
     }
   }
 
+  if (area !== null) {
+    return { skip: `// bingo require ${requirements[area].text} has no bxt_triggers_add after it` };
+  }
+
   const has = (/** @type {string} */ cmd, /** @type {string | null} */ commands) =>
     (commands ?? "").split(";").some((c) => c.trim() === cmd);
-  const starts = triggers.filter((t) => has("bxt_timer_start", t.command));
-  const ends = triggers.filter((t) => has("bxt_timer_stop", t.command));
-  const unused = triggers.length - starts.length - ends.length;
+  // A requirement's trigger only marks the requirement, whatever its command
+  const timed = (/** @type {typeof triggers[number]} */ t) => has("bxt_timer_start", t.command) || has("bxt_timer_stop", t.command);
+  const clash = triggers.find((t) => t.requirement !== null && timed(t));
+  if (clash && clash.requirement !== null) {
+    return { skip: `the trigger of // bingo require ${requirements[clash.requirement].text} also starts or stops the timer` };
+  }
+  const timers = triggers.filter((t) => t.requirement === null);
+  const starts = timers.filter((t) => has("bxt_timer_start", t.command));
+  const ends = timers.filter((t) => has("bxt_timer_stop", t.command));
+  const unused = timers.length - starts.length - ends.length;
   if (unused > 0) {
     notes.push(`${unused} trigger(s) without a timer command, left out`);
   }
@@ -201,7 +285,7 @@ export function parseCfg(name, text, own = false) {
     return { skip: "nothing stops the timer" };
   }
 
-  return { segment: { id: name, label, chapter: chapter.name, save, start, end }, notes };
+  return { segment: { id: name, label, chapter: chapter.name, save, start, end, requirements }, notes };
 }
 
 /** The kit's pools, for the whole maps and for their sections */

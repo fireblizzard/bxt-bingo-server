@@ -806,6 +806,7 @@ export class Room {
       ruleset: player ? this.#rulesetFor(player) : this.ruleset,
       start: segment.start,
       end: segment.end,
+      requirements: segment.requirements ?? [],
     };
   }
 
@@ -1215,7 +1216,7 @@ export class Room {
     const hidden = this.#labelsHidden();
     return ALL_TILES.map((id) => {
       const s = this.tiles[id];
-      return { id, label: hidden ? null : s.label, save: s.saves[build], start: s.start, end: s.end };
+      return { id, label: hidden ? null : s.label, save: s.saves[build], start: s.start, end: s.end, requirements: s.requirements ?? [] };
     });
   }
 

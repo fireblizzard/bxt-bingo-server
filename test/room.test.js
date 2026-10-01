@@ -233,6 +233,23 @@ test("hidden labels come with round_start", () => {
   assert.equal(shown.manifest_hash, hidden.manifest_hash, "revealing labels doesn't make players download again");
 });
 
+test("a segment's requirements go to BXT in the manifest", () => {
+  const requirements = [
+    { type: /** @type {const} */ ("area"), text: "Go through the lab", corners: /** @type {[[number, number, number], [number, number, number]]} */ ([[5, 5, 5], [6, 6, 6]]) },
+    { type: /** @type {const} */ ("health"), text: "50 HP", min: 50 },
+  ];
+  const tiles = makeTiles().map((t, i) => (i === 0 ? { ...t, segment: { ...t.segment, requirements } } : t));
+  const room = new Room({ id: "g", settings: {}, tiles, ruleset: scriptless, handicapPresets: presets });
+  room.addPlayer({ steamid64: RED, name: "a", team: "red" });
+  const manifest = room.manifestFor(RED);
+  assert.deepEqual(manifest.tiles[0].requirements, requirements);
+  assert.deepEqual(manifest.tiles[1].requirements, [], "none when the segment has none");
+
+  const plain = makeRoom();
+  plain.addPlayer({ steamid64: RED, name: "a", team: "red" });
+  assert.notEqual(manifest.manifest_hash, plain.manifestFor(RED).manifest_hash, "changed requirements mean a new manifest");
+});
+
 test("a board is one game, and the manifest says which", () => {
   const room = makeRoom();
   room.addPlayer({ steamid64: RED, name: "a", team: "red" });

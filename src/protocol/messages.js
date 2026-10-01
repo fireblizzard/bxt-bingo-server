@@ -221,6 +221,7 @@ export const LOBBY_STATES = Object.freeze(["lobby", "countdown", "running", "fin
  * @property {import("./segment.js").FileRef} save
  * @property {import("./segment.js").StartCondition} start
  * @property {import("./segment.js").EndCondition} end
+ * @property {import("./segment.js").Requirement[]} requirements Empty when the segment has none
  */
 
 /**

@@ -200,9 +200,10 @@ What each one does is in BINGO.md §10.1.
 ## Offline play
 
 BXT can play a board without a server: `bxt_bingo_manifest <file>` loads one from the Half-Life
-folder or the game folder, and `bxt_bingo_leave` puts it away. `boards/` has three to copy into
-`valve_WON`: `scriptless.json`, `scripted.json`, and `handicaps.json` (scriptless, with `+attack2`
-blocked and no damage).
+folder or the game folder, and `bxt_bingo_leave` puts it away. `boards/` has four to copy into
+`valve_WON`: `scriptless.json`, `scripted.json`, `handicaps.json` (scriptless, with `+attack2`
+blocked and no damage), and `requirements.json` (scriptless, with requirements on AM3, UC2, OAR2 and
+APP5, where the crossbow can't be had, to see the end refused).
 
 A board alone isn't enough: BXT loads each tile from its own copy of the save, in `SAVE` as
 `bingo_<the first 12 characters of the save's sha256>.sav`. The easiest way to get them is to play
@@ -239,7 +240,23 @@ the one the segment starts in:
 ```
 
 A segment that ends when the game ends (Nihilanth's death) has `// bingo end game` instead of an
-end trigger. Put the cfgs in a folder's `PracticeCfgs` and their saves in its `SAVE`, then:
+end trigger.
+
+Requirements, so a segment can't be cheesed by skipping part of it, are lines too. The end only
+counts once they're all met (BINGO.md §4.3):
+
+```
+// bingo require Activate the oxygen
+bxt_triggers_add -100 200 0 -50 260 120
+// bingo require 50 HP or more at the end | health 50
+// bingo require Some armor at the end | armor 1
+// bingo require Have the crossbow at the end | weapon weapon_crossbow
+```
+
+A requirement without `|` is an area: the next `bxt_triggers_add` is its box, and it's met when the
+player goes through it after the start. The others are checked when the player reaches the end.
+
+Put the cfgs in a folder's `PracticeCfgs` and their saves in its `SAVE`, then:
 
 ```sh
 npm run catalog -- "../My segments" --pool hl1-standard --prefix std

@@ -151,6 +151,7 @@ function readBoard(file, pools, listed) {
         saves: { won: t.save },
         start: t.start,
         end: t.end,
+        requirements: t.requirements ?? [],
         reference_time_ms: null,
       },
     }));

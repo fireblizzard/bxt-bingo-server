@@ -117,6 +117,8 @@ never need a BXT update.
   | The other team takes a tile | `bxt_bingo_sound_opponent_capture` | `fvox/blip` |
   | An opponent picks the tile you're playing (taking it or defending it) | `bxt_bingo_sound_contested` | `fvox/danger` |
   | Your run is cancelled or no longer counts | `bxt_bingo_sound_invalid` | `fvox/beep` |
+  | You did one of the run's requirements (§4.3) | `bxt_bingo_sound_requirement` | `buttons/bell1` |
+  | You reached the end with requirements left | `bxt_bingo_sound_requirement_left` | `buttons/button10` |
   | A team wins | `bxt_bingo_sound_win` | `bingo/firework` |
 
   All but the win sound come with Half-Life. `firework.wav` came from an HL or AG server years ago,
@@ -233,7 +235,10 @@ Notes:
   named freely (`07.cfg`) and give their tile text and chapter in comment lines that the game
   skips, `// bingo label OC3-BP1` and `// bingo chapter Office Complex`. One that ends with the
   game has `// bingo end game` instead of an end trigger. Their ids start with the prefix
-  (`std-07`), so they never match an id from the kit.
+  (`std-07`), so they never match an id from the kit. Requirements (§4.3) are lines too:
+  `// bingo require Activate the oxygen` takes the next `bxt_triggers_add` as its area, and
+  `// bingo require 50 HP or more | health 50`, `| armor 20` and `| weapon weapon_crossbow` are
+  checked at the end.
 - **Segment ids are never reused.** The leaderboards key times by segment id, so a segment whose
   save or triggers change is a new segment with a new id, and old times aren't compared with new
   ones.
@@ -540,6 +545,25 @@ IDLE ──pick (board click / bxt_bingo_play)──▶ LOADING ──save loade
   Saving over the retry save during a run is refused, since loading it restarts the tile.
 - **Other things that cancel a run:** `map`, `changelevel`, `restart`, a broken cvar or command
   rule (§5.1), or picking another tile (quietly). The console says why, with a sound.
+- **Requirements**, so a segment can't be cheesed by skipping part of it. A segment can list things
+  the player has to do (`requirements` in the catalog and the manifest), and the end trigger only
+  counts once they're all met. Until then the run keeps going: touching the end plays
+  `bxt_bingo_sound_requirement_left` and says what's still to do, and the player can go back, do
+  it, and touch the end again. Kinds:
+  - `area`: go through a box after the start trigger, e.g. to activate the oxygen and the water.
+    Drawn like the start and end triggers in `bxt_bingo_color_requirement`, and in
+    `bxt_bingo_color_requirement_done` once passed, with `bxt_bingo_sound_requirement`;
+  - `health` and `armor`: at least `min` when touching the end;
+  - `weapon`: have it when touching the end, e.g. `weapon_crossbow` (a weapon entity the player
+    owns, which is how the game keeps the inventory, so it works the same in every game).
+
+  The mini-board lists them under the match status, `[x]` and green once met, with the health or
+  armor the player has now. The console lists them when the tile is picked. Each area passed goes
+  into the demo (`requirement`), and the server's demo check flags a run whose path never went
+  through an area, or that ended with less health than needed. A segment that ends with the game
+  (`game_end`) and still has requirements left is cancelled, as there's no going back.
+  Planned: buttons and other things the map fires (`fired`, with a helper that prints their names),
+  then ammo counts (`ammo weapon_handgrenade 5`).
 - **Protecting the player's own `hard.sav`:** before bingo first overwrites it, BXT backs it up to
   `SAVE/bingo_backup_hard.sav`, and puts it back on `bxt_bingo_leave`, or on the next start if the
   game closed while playing a tile. An existing backup is never replaced, since it's the player's
@@ -774,7 +798,9 @@ elsewhere), `4004` banned, `1012` server restarting (reconnect). Any other drop:
   "teams": [ { "team": "red", "color": "#e64b28" } ] }        // colors optional
 { "type": "manifest", "manifest_hash": "…", "ruleset": { … §10, with this player's handicaps … },
   "tiles": [ { "id": "B3", "label": "OAR2" /* null while hidden */, "save": { "sha256": "…", "size": 812345 },
-               "start": { "type": "trigger", "corners": [ … ] }, "end": { "corners": [ … ] } } ],
+               "start": { "type": "trigger", "corners": [ … ] }, "end": { "corners": [ … ] },
+               "requirements": [ { "type": "area", "text": "Activate the oxygen", "corners": [ … ] },
+                                 { "type": "health", "text": "50 HP or more", "min": 50 } ] /* [] if none, §4.3 */ } ],
   "extra_files": [ { "path": "sound/bingo/firework.wav", "sha256": "…", "size": 74858 } ],
   "files_url": "/files/" /* or e.g. "https://assets.jrik.dev/bingo/files/" */,
   "game": "valve" /* the game folder, §3.3 */ }
@@ -1351,5 +1377,9 @@ Decided since `BINGO-WEB.md` was written:
     read the parts from `GET /api/games/<id>/demos/<attempt_id>/<part>` (limit it to the host and
     moderators), and each result in the snapshot has a `demo` with its status and the checks' flags.
     Lobby settings: `demoRequests` (on), `demoRate` (0.1) and `demoDeadlineMs` (5 minutes).
+17. **Requirements** (§4.3): a segment may have a `requirements` list, each with a `text` to show
+    (e.g. "Activate the oxygen"). The create page and the board could show them, or at least mark
+    tiles that have some. They reach BXT through the manifest, and the demo check verifies the
+    areas and the health.
 
 Nothing is open right now.
